@@ -42,7 +42,7 @@ pub enum RenderCommand {
     SetPushConstants {
         stages: BindingShaderStage,
         offset: u32,
-        data: Arc<[u8]>,
+        data: Vec<u8>,
     },
     DrawIndexed {
         indices: Range<u32>,
@@ -129,7 +129,7 @@ impl<P: Send + Sync + 'static> Draw<P> {
         });
     }
 
-    pub fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: Arc<[u8]>) {
+    pub fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: Vec<u8>) {
         self.render_command(RenderCommand::SetPushConstants {
             stages,
             offset,
