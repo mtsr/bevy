@@ -1,4 +1,4 @@
-use bevy_math::{Mat4, Vec2, Vec3, Vec4};
+use bevy_math::{IVec2, IVec3, IVec4, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 
 pub use bevy_derive::Bytes;
 
@@ -105,6 +105,12 @@ unsafe impl Byteable for Vec2 {}
 // uniform buffer objects pad Vec3s to be 16 bytes.
 unsafe impl Byteable for Vec3 {}
 unsafe impl Byteable for Vec4 {}
+unsafe impl Byteable for UVec2 {}
+unsafe impl Byteable for UVec3 {}
+unsafe impl Byteable for UVec4 {}
+unsafe impl Byteable for IVec2 {}
+unsafe impl Byteable for IVec3 {}
+unsafe impl Byteable for IVec4 {}
 
 impl Bytes for Mat4 {
     fn write_bytes(&self, buffer: &mut [u8]) {

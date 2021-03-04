@@ -4,7 +4,7 @@ use bevy_asset::Handle;
 
 use bevy_core::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
-use bevy_math::{Mat4, Vec2, Vec3, Vec4};
+use bevy_math::{IVec2, IVec3, IVec4, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 use bevy_transform::components::GlobalTransform;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -144,6 +144,12 @@ macro_rules! impl_render_resource_bytes {
 }
 
 // TODO: when specialization lands, replace these with impl<T> RenderResource for T where T: Bytes
+impl_render_resource_bytes!(UVec2);
+impl_render_resource_bytes!(UVec3);
+impl_render_resource_bytes!(UVec4);
+impl_render_resource_bytes!(IVec2);
+impl_render_resource_bytes!(IVec3);
+impl_render_resource_bytes!(IVec4);
 impl_render_resource_bytes!(Vec2);
 impl_render_resource_bytes!(Vec3);
 impl_render_resource_bytes!(Vec4);
