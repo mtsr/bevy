@@ -114,7 +114,6 @@ pub struct NodeState {
     pub name: Option<Cow<'static, str>>,
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
-    pub type_name: &'static str,
     pub input_slots: ResourceSlots,
     pub output_slots: ResourceSlots,
     pub edges: Edges,
