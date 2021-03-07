@@ -6,7 +6,7 @@ use crate::{
         RenderResourceBindings, RenderResourceContext,
     },
 };
-use bevy_core::AsBytes;
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -87,7 +87,7 @@ pub fn camera_node_system(
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 4]>();
+        let size = std::mem::size_of::<[[f32; 4]; 5]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
@@ -119,9 +119,11 @@ pub fn camera_node_system(
 
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..matrix_size as u64,
+        0..(matrix_size + global_transform.translation.byte_len()) as u64,
         &mut |data, _renderer| {
             data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
+            data[matrix_size..matrix_size + global_transform.translation.byte_len()]
+                .copy_from_slice(global_transform.translation.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);
