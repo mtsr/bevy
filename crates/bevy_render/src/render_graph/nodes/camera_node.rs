@@ -6,7 +6,7 @@ use crate::{
         RenderResourceBindings, RenderResourceContext,
     },
 };
-use bevy_core::AsBytes;
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -83,13 +83,22 @@ pub fn camera_node_system(
         return;
     };
 
+    let camera_pos = &[
+        global_transform.translation.x,
+        global_transform.translation.y,
+        global_transform.translation.z,
+        1.0,
+    ];
+    let camera_matrix_array =
+        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
+    let buffer_size = camera_pos.byte_len() + camera_matrix_array.byte_len();
+
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 5]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
+            size: buffer_size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
@@ -97,14 +106,14 @@ pub fn camera_node_system(
             &state.camera_name,
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..size as u64,
+                range: 0..buffer_size as u64,
                 dynamic_index: None,
             },
         );
         state.camera_buffer = Some(buffer);
 
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
+            size: buffer_size,
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -113,20 +122,13 @@ pub fn camera_node_system(
         staging_buffer
     };
 
-    let camera_pos = &global_transform.translation;
-    let matrix_size = std::mem::size_of::<[[f32; 4]; 5]>();
-    let mut camera_matrix_array: Vec<f32> = (camera.projection_matrix
-        * global_transform.compute_matrix().inverse())
-    .to_cols_array()
-    .to_vec();
-    camera_matrix_array.extend_from_slice(&[camera_pos.x, camera_pos.y, camera_pos.z, 1.0]);
-    let camera_gpu_data = camera_matrix_array.as_slice();
-
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..matrix_size as u64,
+        0..buffer_size as u64,
         &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_gpu_data.as_bytes());
+            data[0..camera_matrix_array.byte_len()].copy_from_slice(camera_matrix_array.as_bytes());
+            data[camera_matrix_array.byte_len()..buffer_size]
+                .copy_from_slice(camera_pos.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);
@@ -137,6 +139,6 @@ pub fn camera_node_system(
         0,
         camera_buffer,
         0,
-        matrix_size as u64,
+        buffer_size as u64,
     );
 }
