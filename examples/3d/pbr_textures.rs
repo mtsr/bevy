@@ -1,9 +1,12 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{pbr::AmbientLight, prelude::*};
 
 fn main() {
     App::build()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE * (1.0 / 5.0f32),
+        })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
