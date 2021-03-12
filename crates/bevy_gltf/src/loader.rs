@@ -329,6 +329,13 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             (occlusion_texture, false)
         };
 
+    let emissive = material.emissive_factor();
+    let emissive_texture = load_texture(
+        material.emissive_texture().map(|info| info.texture()),
+        load_context,
+        &mut dependencies,
+    );
+
     let color = pbr.base_color_factor();
     load_context.set_labeled_asset(
         &material_label,
@@ -342,6 +349,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             double_sided: material.double_sided(),
             occlusion_shares_metallic_roughness_texture,
             occlusion_texture,
+            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive_texture,
             unlit: material.unlit(),
             ..Default::default()
         })
