@@ -316,6 +316,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
             normal_map,
+            double_sided: material.double_sided(),
             ..Default::default()
         })
         .with_dependencies(dependencies),
