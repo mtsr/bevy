@@ -308,6 +308,15 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         &mut dependencies,
     );
 
+    let metallic_roughness_texture = load_texture(
+        material
+            .pbr_metallic_roughness()
+            .metallic_roughness_texture()
+            .map(|info| info.texture()),
+        load_context,
+        &mut dependencies,
+    );
+
     let color = pbr.base_color_factor();
     load_context.set_labeled_asset(
         &material_label,
@@ -316,6 +325,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             base_color_texture,
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
+            metallic_roughness_texture,
             unlit: material.unlit(),
             normal_map,
             double_sided: material.double_sided(),
