@@ -315,6 +315,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         &mut dependencies,
     );
 
+    // This is because GLTF actually defines the occlusion_texture separately, but if it is the same, we don't want to pass it to the shader twice.
     let occlusion_texture = load_texture(
         material
             .occlusion_texture()
