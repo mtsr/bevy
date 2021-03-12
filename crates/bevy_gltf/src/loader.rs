@@ -315,6 +315,20 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         &mut dependencies,
     );
 
+    let occlusion_texture = load_texture(
+        material
+            .occlusion_texture()
+            .map(|occlusion_texture| occlusion_texture.texture()),
+        load_context,
+        &mut dependencies,
+    );
+    let (occlusion_texture, occlusion_shares_metallic_roughness_texture) =
+        if occlusion_texture == metallic_roughness_texture {
+            (None, true)
+        } else {
+            (occlusion_texture, false)
+        };
+
     let color = pbr.base_color_factor();
     load_context.set_labeled_asset(
         &material_label,
@@ -324,9 +338,11 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             metallic_roughness_texture,
-            unlit: material.unlit(),
             normal_map,
             double_sided: material.double_sided(),
+            occlusion_shares_metallic_roughness_texture,
+            occlusion_texture,
+            unlit: material.unlit(),
             ..Default::default()
         })
         .with_dependencies(dependencies),
