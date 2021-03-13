@@ -115,6 +115,13 @@ async fn load_gltf<'a, 'b>(
             }
 
             if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float4(v.collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            }
+
+            if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
             {
@@ -251,14 +258,17 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
-fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
-    let material_label = material_label(&material);
-    let pbr = material.pbr_metallic_roughness();
-    let mut dependencies = Vec::new();
-    let texture_handle = if let Some(info) = pbr.base_color_texture() {
-        match info.texture().source().source() {
+type GltfTexture<'a> = gltf::texture::Texture<'a>;
+
+fn load_texture<'a>(
+    texture: Option<GltfTexture<'a>>,
+    load_context: &mut LoadContext,
+    dependencies: &mut Vec<AssetPath>,
+) -> Option<Handle<Texture>> {
+    if let Some(texture) = texture {
+        match texture.source().source() {
             gltf::image::Source::View { .. } => {
-                let label = texture_label(&info.texture());
+                let label = texture_label(&texture);
                 let path = AssetPath::new_ref(load_context.path(), Some(&label));
                 Some(load_context.get_handle(path))
             }
@@ -273,17 +283,41 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         }
     } else {
         None
-    };
+    }
+}
+
+fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
+    let material_label = material_label(&material);
+    let pbr = material.pbr_metallic_roughness();
+    let mut dependencies = Vec::new();
+
+    let base_color_texture = load_texture(
+        material
+            .pbr_metallic_roughness()
+            .base_color_texture()
+            .map(|info| info.texture()),
+        load_context,
+        &mut dependencies,
+    );
+
+    let normal_map = load_texture(
+        material
+            .normal_texture()
+            .map(|normal_texture| normal_texture.texture()),
+        load_context,
+        &mut dependencies,
+    );
 
     let color = pbr.base_color_factor();
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
             base_color: Color::rgba(color[0], color[1], color[2], color[3]),
-            base_color_texture: texture_handle,
+            base_color_texture,
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
+            normal_map,
             ..Default::default()
         })
         .with_dependencies(dependencies),
