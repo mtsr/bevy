@@ -21,6 +21,7 @@ pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
                 ShaderStage::Vertex,
                 include_str!("wireframe.vert"),
             )),
+            geometry: None,
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
                 include_str!("wireframe.frag"),

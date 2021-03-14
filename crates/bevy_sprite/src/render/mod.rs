@@ -63,6 +63,7 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
                 ShaderStage::Vertex,
                 include_str!("sprite_sheet.vert"),
             )),
+            geometry: None,
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
                 include_str!("sprite_sheet.frag"),
@@ -116,6 +117,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
                 ShaderStage::Vertex,
                 include_str!("sprite.vert"),
             )),
+            geometry: None,
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
                 include_str!("sprite.frag"),

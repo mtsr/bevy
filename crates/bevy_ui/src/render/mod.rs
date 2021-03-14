@@ -59,6 +59,7 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
                 ShaderStage::Vertex,
                 include_str!("ui.vert"),
             )),
+            geometry: None,
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
                 include_str!("ui.frag"),

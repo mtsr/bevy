@@ -16,6 +16,7 @@ use thiserror::Error;
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ShaderStage {
     Vertex,
+    Geometry,
     Fragment,
     Compute,
 }
@@ -50,6 +51,7 @@ impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
     fn from(s: ShaderStage) -> bevy_glsl_to_spirv::ShaderType {
         match s {
             ShaderStage::Vertex => bevy_glsl_to_spirv::ShaderType::Vertex,
+            ShaderStage::Geometry => bevy_glsl_to_spirv::ShaderType::Geometry,
             ShaderStage::Fragment => bevy_glsl_to_spirv::ShaderType::Fragment,
             ShaderStage::Compute => bevy_glsl_to_spirv::ShaderType::Compute,
         }
@@ -75,6 +77,7 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     fn into(self) -> shaderc::ShaderKind {
         match self {
             ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
+            ShaderStage::Geometry => shaderc::ShaderKind::Geometry,
             ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
             ShaderStage::Compute => shaderc::ShaderKind::Compute,
         }
@@ -153,6 +156,7 @@ impl Shader {
             .map_err(|msg| ShaderError::Compilation(msg.to_string()))?;
         let stage = match module.get_shader_stage() {
             ReflectShaderStageFlags::VERTEX => ShaderStage::Vertex,
+            ReflectShaderStageFlags::GEOMETRY => ShaderStage::Geometry,
             ReflectShaderStageFlags::FRAGMENT => ShaderStage::Fragment,
             other => panic!("cannot load {:?} shader", other),
         };
@@ -208,6 +212,7 @@ impl Shader {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ShaderStages {
     pub vertex: Handle<Shader>,
+    pub geometry: Option<Handle<Shader>>,
     pub fragment: Option<Handle<Shader>>,
 }
 
@@ -234,6 +239,7 @@ impl ShaderStages {
     pub fn new(vertex_shader: Handle<Shader>) -> Self {
         ShaderStages {
             vertex: vertex_shader,
+            geometry: None,
             fragment: None,
         }
     }
@@ -260,6 +266,7 @@ impl AssetLoader for ShaderLoader {
 
             let shader = match ext {
                 "vert" => Shader::from_glsl(ShaderStage::Vertex, std::str::from_utf8(bytes)?),
+                "geom" => Shader::from_glsl(ShaderStage::Geometry, std::str::from_utf8(bytes)?),
                 "frag" => Shader::from_glsl(ShaderStage::Fragment, std::str::from_utf8(bytes)?),
                 #[cfg(not(target_arch = "wasm32"))]
                 "spv" => Shader::from_spirv(bytes)?,
@@ -274,7 +281,7 @@ impl AssetLoader for ShaderLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["vert", "frag", "spv"]
+        &["vert", "geom", "frag", "spv"]
     }
 }
 
