@@ -352,7 +352,7 @@ where
 
 /// Tracks the current pipeline state to ensure draw calls are valid.
 #[derive(Debug, Default)]
-struct DrawState {
+pub struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
     bind_groups: Vec<Option<BindGroupId>>,
     vertex_buffers: Vec<Option<(BufferId, u64)>>,
@@ -416,5 +416,9 @@ impl DrawState {
         self.bind_groups.resize(layout.bind_groups.len(), None);
         self.vertex_buffers
             .resize(layout.vertex_buffer_descriptors.len(), None);
+    }
+
+    pub fn pipeline(&self) -> &Option<Handle<PipelineDescriptor>> {
+        &self.pipeline
     }
 }

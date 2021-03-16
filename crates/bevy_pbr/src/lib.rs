@@ -27,6 +27,7 @@ impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
             .register_type::<Light>()
+            .register_type::<ShadowCaster>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),

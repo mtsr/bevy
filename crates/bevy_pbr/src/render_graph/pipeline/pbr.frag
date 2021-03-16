@@ -35,6 +35,7 @@
 #version 450
 
 const int MAX_LIGHTS = 10;
+const float BIAS = 0.5;
 
 struct Light {
     mat4 proj;
@@ -117,6 +118,12 @@ layout(set = 3,
        binding = 14) uniform sampler StandardMaterial_emissive_texture_sampler;
 #    endif
 
+#    if defined(STANDARDMATERIAL_SHADOW_MAP)
+layout(set = 3, binding = 15) uniform textureCubeArray StandardMaterial_shadow_map;
+layout(set = 3,
+       binding = 16) uniform sampler StandardMaterial_shadow_map_sampler;
+#    endif
+
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
@@ -130,8 +137,7 @@ float pow5(float x) {
 //
 // light radius is a non-physical construct for efficiency purposes,
 // because otherwise every light affects every fragment in the scene
-float getDistanceAttenuation(const vec3 posToLight, float inverseRadiusSquared) {
-    float distanceSquare = dot(posToLight, posToLight);
+float getDistanceAttenuation(float distanceSquare, float inverseRadiusSquared) {
     float factor = distanceSquare * inverseRadiusSquared;
     float smoothFactor = saturate(1.0 - factor * factor);
     float attenuation = smoothFactor * smoothFactor;
@@ -346,11 +352,26 @@ void main() {
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
 
-        vec3 lightDir = light.pos.xyz - v_WorldPosition.xyz;
-        vec3 L = normalize(lightDir);
+        vec3 pos_to_light = light.pos.xyz - v_WorldPosition.xyz;
+        vec3 L = normalize(pos_to_light);
+        float distance_square = dot(pos_to_light, pos_to_light);
+
+#    ifdef STANDARDMATERIAL_SHADOW_MAP
+        float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(pos_to_light, i)).r;
+
+        float near = light.proj[3][3] + light.proj[2][3];
+        float far = light.proj[3][3] - light.proj[2][3];
+        shadow_depth = near / (far - shadow_depth * (far - near)) * far;
+        shadow_depth = shadow_depth * 2.0 - 1.0;
+
+        float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;
+        o_Target = vec4(vec3(shadow_depth / far), 1.0);
+#    else
+        float shadow = 1.0;
+#    endif
 
         float rangeAttenuation =
-            getDistanceAttenuation(lightDir, light.inverseRadiusSquared);
+            getDistanceAttenuation(distance_square, light.inverseRadiusSquared);
 
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
@@ -372,7 +393,7 @@ void main() {
         // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
         // light.color.rgb is premultiplied with light.intensity on the CPU
         light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL) * shadow;
     }
 
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
@@ -389,5 +410,5 @@ void main() {
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
-    o_Target = output_color;
+    // o_Target = output_color;
 }

@@ -1,6 +1,7 @@
 use crate::{light::Light, material::StandardMaterial, render_graph::PIPELINE_HANDLE};
 use bevy_asset::Handle;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::{bundle::Bundle, reflect::ReflectComponent};
+use bevy_reflect::Reflect;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
@@ -21,6 +22,7 @@ pub struct PbrBundle {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub shadow_caster: ShadowCaster,
 }
 
 impl Default for PbrBundle {
@@ -36,6 +38,7 @@ impl Default for PbrBundle {
             draw: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            shadow_caster: Default::default(),
         }
     }
 }
@@ -47,3 +50,8 @@ pub struct LightBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
+
+/// A marker type for shadow casters
+#[derive(Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct ShadowCaster;
