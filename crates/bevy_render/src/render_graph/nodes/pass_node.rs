@@ -23,7 +23,8 @@ use std::{fmt, ops::Deref};
 #[derive(Debug)]
 struct CameraInfo {
     name: String,
-    bind_group_id: Option<BindGroupId>,
+    bindings: RenderResourceBindings,
+    active: bool,
 }
 
 pub struct PassNode<Q: WorldQuery> {
@@ -150,7 +151,8 @@ impl<Q: WorldQuery> PassNode<Q> {
     pub fn add_camera(&mut self, camera_name: &str) {
         self.cameras.push(CameraInfo {
             name: camera_name.to_string(),
-            bind_group_id: None,
+            bindings: Default::default(),
+            active: false,
         });
     }
 
@@ -209,55 +211,43 @@ where
         }
 
         'outer: for camera_info in self.cameras.iter_mut() {
+            camera_info.active = false;
             let camera_name = &camera_info.name;
 
             if render_context
                 .resources()
                 .bind_group_descriptor_exists(self.camera_bind_group_descriptor.id)
             {
-                let mut camera_bind_group_builder = BindGroup::build();
-
-                for (index, binding_name) in self
+                for binding_name in self
                     .camera_bind_group_descriptor
                     .bindings
                     .iter()
                     .map(|binding| &binding.name)
-                    .enumerate()
                 {
-                    let camera_binding = if let Some(camera_binding) = render_resource_bindings.get(
-                        &format!("{}{}", &camera_name, binding_name.replace("Camera", "")),
-                    ) {
-                        camera_binding.clone()
+                    if let Some(camera_binding) =
+                        render_resource_bindings.get(&binding_name.replace("Camera", &camera_name))
+                    {
+                        camera_info
+                            .bindings
+                            .set(&binding_name, camera_binding.clone());
                     } else {
                         continue 'outer;
                     };
-
-                    camera_bind_group_builder =
-                        camera_bind_group_builder.add_binding(index as u32, camera_binding);
                 }
 
-                let camera_bind_group = camera_bind_group_builder.finish();
-
-                render_context
-                    .resources()
-                    .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);
-                camera_info.bind_group_id = Some(camera_bind_group.id);
+                camera_info.active = true;
             }
         }
 
         let query_state = self.query_state.as_mut().unwrap();
         let cameras = &self.cameras;
-        let camera_bind_group_descriptor = &self.camera_bind_group_descriptor;
         render_context.begin_pass(
             &self.descriptor,
             &render_resource_bindings,
             &mut |render_pass| {
                 for camera_info in cameras.iter() {
-                    let camera_bind_group_id= if let Some(bind_group_id) = camera_info.bind_group_id {
-                        bind_group_id
-                    } else {
-                        continue;
-                    };
+                    if !camera_info.active { continue }
+                    dbg!(&camera_info);
 
                     // get an ordered list of entities visible to the camera
                     let visible_entities = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
@@ -293,22 +283,29 @@ where
                                     if draw_state.is_pipeline_set(pipeline.clone_weak()) {
                                         continue;
                                     }
+                                    dbg!(&pipeline);
                                     render_pass.set_pipeline(pipeline);
                                     let descriptor = pipelines.get(pipeline).unwrap();
+
                                     draw_state.set_pipeline(pipeline, descriptor);
 
                                     // try to set current camera bind group
                                     let layout = descriptor.get_layout().unwrap();
                                     if let Some(descriptor) = layout.get_bind_group(0) {
-                                        if descriptor == camera_bind_group_descriptor {
-                                            draw_state.set_bind_group(0, camera_bind_group_id);
-                                            render_pass.set_bind_group(
-                                                0,
-                                                descriptor.id,
-                                                camera_bind_group_id,
-                                                None
-                                            );
+                                        dbg!(&descriptor);
+                                        let mut builder = BindGroup::build();
+                                        for binding in &descriptor.bindings {
+                                            if let Some(camera_binding) = camera_info.bindings.bindings.get(&binding.name) {
+                                                builder = builder.add_binding(binding.index, camera_binding.clone());
+                                            }
                                         }
+                                        let camera_bind_group = builder.finish();
+                                        dbg!(&camera_bind_group);
+
+                                        render_pass.set_bind_group(0, descriptor.id, camera_bind_group.id, None);
+                                        draw_state.set_bind_group(0, camera_bind_group.id);
+                                    } else {
+                                        panic!();
                                     }
                                 }
                                 RenderCommand::DrawIndexed {
@@ -316,6 +313,7 @@ where
                                     indices,
                                     instances,
                                 } => {
+                                    dbg!(&draw_state);
                                     if draw_state.can_draw_indexed() {
                                         render_pass.draw_indexed(
                                             indices.clone(),

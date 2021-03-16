@@ -92,7 +92,7 @@ pub fn camera_node_system(
         &**render_resource_context,
         &mut *render_resource_bindings,
         &format!("{}ViewProj", camera_name),
-        view_proj_matrix.to_cols_array(),
+        &view_proj_matrix.to_cols_array(),
     );
 
     make_binding(
@@ -100,19 +100,17 @@ pub fn camera_node_system(
         &**render_resource_context,
         &mut *render_resource_bindings,
         &format!("{}View", camera_name),
-        view_matrix.to_cols_array(),
+        &view_matrix.to_cols_array(),
     );
 }
 
-fn make_binding<B>(
+fn make_binding(
     state: &mut CameraNodeState,
     render_resource_context: &dyn RenderResourceContext,
     render_resource_bindings: &mut RenderResourceBindings,
     binding_name: &str,
-    bytes: B,
-) where
-    B: Bytes + Byteable,
-{
+    bytes: &(impl Bytes + Byteable),
+) {
     let buffer_size = bytes.byte_len();
 
     let buffers_entry = state.buffers.entry(binding_name.to_owned());
