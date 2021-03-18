@@ -1,9 +1,20 @@
 use std::f32::consts::PI;
 
+use bevy::wgpu::{WgpuFeature, WgpuFeatures, WgpuLimits, WgpuOptions};
 use bevy::{pbr::AmbientLight, prelude::*};
 
 fn main() {
     App::build()
+        .insert_resource(WgpuOptions {
+            features: WgpuFeatures {
+                features: vec![WgpuFeature::PushConstants],
+            },
+            limits: WgpuLimits {
+                max_push_constant_size: 128,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,

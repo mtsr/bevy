@@ -26,7 +26,8 @@ use bevy_render::{
         TextureAttachment,
     },
     pipeline::{
-        IndexFormat, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology, RenderPipeline,
+        BindingShaderStage, IndexFormat, PipelineDescriptor, PipelineSpecialization,
+        PrimitiveTopology, RenderPipeline,
     },
     prelude::RenderPipelines,
     render_graph::{CommandQueue, DrawState, Node, ResourceSlotInfo, ResourceSlots, SystemNode},
@@ -135,6 +136,7 @@ where
                             }
                             render_pass.set_pipeline(pipeline);
                             let descriptor = pipelines.get(pipeline).unwrap();
+                            dbg!(descriptor);
                             draw_state.set_pipeline(pipeline, descriptor);
                         }
                         RenderCommand::DrawIndexed {
@@ -203,6 +205,7 @@ where
                                 .unwrap();
                             let layout = pipeline.get_layout().unwrap();
                             let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
+                            dbg!(bind_group_descriptor);
                             render_pass.set_bind_group(
                                 *index,
                                 bind_group_descriptor.id,
@@ -212,6 +215,14 @@ where
                                     .map(|indices| indices.deref()),
                             );
                             draw_state.set_bind_group(*index, *bind_group);
+                        }
+                        RenderCommand::SetPushConstants {
+                            stages,
+                            offset,
+                            data,
+                        } => {
+                            // TODO draw_state
+                            render_pass.set_push_constants(*stages, *offset, data);
                         }
                     }
                 }
@@ -291,229 +302,99 @@ pub fn shadows_node_system(
         {
             (*buffer, range.clone())
         } else {
-            panic!()
+            return;
+            // panic!()
         };
 
-    lights.iter().for_each(|(light, global_transform)| {
-        for face in 0..6 {
-            render_resource_bindings.set(
-                SINGLE_LIGHT,
-                RenderResourceBinding::Buffer {
-                    buffer: lights_buffer,
-                    range: range.clone(),
-                    dynamic_index: Some(std::mem::size_of::<[f32; 5]>() as u32 + 0),
-                },
-            );
+    lights
+        .iter()
+        .enumerate()
+        .take(1)
+        .for_each(|(index, (light, global_transform))| {
+            for face in 0..6 {
+                shadow_casters.iter_mut().take(1).for_each(
+                    |(_, mesh_handle, global_transform, mut render_pipelines)| {
+                        let mesh = meshes.get(mesh_handle).unwrap();
 
-            shadow_casters.iter_mut().for_each(
-                |(_, mesh_handle, global_transform, mut render_pipelines)| {
-                    let mesh = meshes.get(mesh_handle).unwrap();
+                        // set up pipelinespecialzation and bindings
+                        // see crates\bevy_render\src\mesh\mesh.rs:502
+                        let mut pipeline_specialization = PipelineSpecialization::default();
+                        pipeline_specialization.primitive_topology = mesh.primitive_topology();
+                        pipeline_specialization.vertex_buffer_layout =
+                            mesh.get_vertex_buffer_layout();
+                        if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+                            mesh.primitive_topology()
+                        {
+                            pipeline_specialization.strip_index_format =
+                                mesh.indices().map(|indices| indices.into());
+                        }
 
-                    // set up pipelinespecialzation and bindings
-                    // see crates\bevy_render\src\mesh\mesh.rs:502
-                    let mut pipeline_specialization = PipelineSpecialization::default();
-                    pipeline_specialization.primitive_topology = mesh.primitive_topology();
-                    pipeline_specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
-                    pipeline_specialization
-                        .dynamic_bindings
-                        .insert(SINGLE_LIGHT.to_string());
-                    if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
-                        mesh.primitive_topology()
-                    {
-                        pipeline_specialization.strip_index_format =
-                            mesh.indices().map(|indices| indices.into());
-                    }
+                        // TODO hacky hacks are hacky
+                        pipeline_specialization
+                            .dynamic_bindings
+                            .insert("Transform".to_string());
 
-                    draw_context
-                        .set_pipeline(
-                            &mut draw,
-                            &SHADOW_PIPELINE_HANDLE.typed(),
-                            &pipeline_specialization,
-                        )
-                        .unwrap();
+                        dbg!(&pipeline_specialization);
 
-                    // for binding in &render_resource_bindings.bindings {
-                    //     dbg!(binding);
-                    // }
+                        draw_context
+                            .set_pipeline(
+                                &mut draw,
+                                &SHADOW_PIPELINE_HANDLE.typed(),
+                                &pipeline_specialization,
+                            )
+                            .unwrap();
 
-                    // for binding in &render_pipelines.bindings.bindings {
-                    //     dbg!(binding);
-                    // }
+                        let data = [index.as_bytes(), face.as_bytes()].concat();
+                        draw_context.set_push_constants(
+                            &mut *draw,
+                            BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+                            0,
+                            data,
+                        );
 
-                    draw_context
-                        .set_bind_groups_from_bindings(
-                            &mut draw,
-                            &mut [
-                                &mut render_resource_bindings,
-                                &mut render_pipelines.bindings,
-                            ],
-                        )
-                        .unwrap();
+                        draw_context
+                            .set_bind_groups_from_bindings(
+                                &mut draw,
+                                &mut [
+                                    &mut render_resource_bindings,
+                                    &mut render_pipelines.bindings,
+                                ],
+                            )
+                            .unwrap();
 
-                    if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-                        render_resource_context
-                            .get_asset_resource(mesh_handle, INDEX_BUFFER_ASSET_INDEX)
-                    {
-                        let index_format: IndexFormat = mesh.indices().unwrap().into();
-                        // skip draw_context because it requires a RenderPipeline
-                        // and doesn't actually do anything special
-                        draw.set_index_buffer(index_buffer_resource, 0, index_format);
-                    }
+                        if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+                            render_resource_context
+                                .get_asset_resource(mesh_handle, INDEX_BUFFER_ASSET_INDEX)
+                        {
+                            let index_format: IndexFormat = mesh.indices().unwrap().into();
+                            // skip draw_context because it requires a RenderPipeline
+                            // and doesn't actually do anything special
+                            draw.set_index_buffer(index_buffer_resource, 0, index_format);
+                        }
 
-                    if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
-                        render_resource_context
-                            .get_asset_resource(mesh_handle, VERTEX_ATTRIBUTE_BUFFER_ID)
-                    {
-                        // skip draw_context because it requires a RenderPipeline
-                        // and doesn't actually do anything special
-                        draw.set_vertex_buffer(0, vertex_attribute_buffer_resource, 0);
-                    }
+                        if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+                            render_resource_context
+                                .get_asset_resource(mesh_handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+                        {
+                            // skip draw_context because it requires a RenderPipeline
+                            // and doesn't actually do anything special
+                            draw.set_vertex_buffer(0, vertex_attribute_buffer_resource, 0);
+                        }
 
-                    let index_range = match mesh.indices() {
-                        Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
-                        Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
-                        None => None,
-                    };
+                        let index_range = match mesh.indices() {
+                            Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
+                            Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
+                            None => None,
+                        };
 
-                    // dbg!(mesh_handle);
-                    if let Some(indices) = index_range.clone() {
-                        draw.draw_indexed(indices, 0, 0..1);
-                    } else {
-                        draw.draw(0..mesh.count_vertices() as u32, 0..1)
-                    }
-                },
-            );
-        }
-    });
-
-    // let buffer_size = std::mem::size_of::<LightRaw>()
-    //     + std::mem::size_of::<[f32; 16]>()
-    //     + std::mem::size_of::<i32>();
-    // if state.staging_buffer.is_none() {
-    //     let buffer = render_resource_context.create_buffer(BufferInfo {
-    //         size: buffer_size,
-    //         buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
-    //         ..Default::default()
-    //     });
-    //     render_resource_bindings.set(
-    //         SINGLE_LIGHT,
-    //         RenderResourceBinding::Buffer {
-    //             buffer,
-    //             range: 0..buffer_size as u64,
-    //             dynamic_index: None,
-    //         },
-    //     );
-    //     state.buffer = Some(buffer);
-
-    //     let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-    //         size: buffer_size,
-    //         buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-    //         mapped_at_creation: false,
-    //     });
-    //     state.staging_buffer = Some(staging_buffer);
-    // }
-
-    // let staging_buffer = state.staging_buffer.unwrap();
-    // let buffer = state.buffer.unwrap();
-
-    // lights.iter().for_each(|(light, global_transform)| {
-    //     for face in 0..6 {
-    //         let projection = PerspectiveProjection {
-    //             fov: PI / 2.0,
-    //             aspect_ratio: SHADOW_WIDTH as f32 / SHADOW_HEIGHT as f32,
-    //             near: 0.1,
-    //             far: light.range,
-    //         }
-    //         .get_projection_matrix();
-    //         let view = Mat4::look_at_rh(faces[face], Vec3::ZERO, up[face]);
-
-    //         let light_raw = LightRaw::from(light, global_transform);
-    //         let light_data = &[
-    //             light_raw.as_bytes(),
-    //             (projection * view).to_cols_array().as_bytes(),
-    //             (face as i32).as_bytes(),
-    //         ]
-    //         .concat();
-
-    //         render_resource_context
-    //             .map_buffer(staging_buffer, bevy_render::renderer::BufferMapMode::Write);
-    //         render_resource_context.write_mapped_buffer(
-    //             staging_buffer,
-    //             0..buffer_size as u64,
-    //             &mut |data, _renderer| data[0..buffer_size].copy_from_slice(light_data),
-    //         );
-    //         render_resource_context.unmap_buffer(staging_buffer);
-    //         state.command_queue.copy_buffer_to_buffer(
-    //             staging_buffer,
-    //             0,
-    //             buffer,
-    //             0,
-    //             buffer_size as u64,
-    //         );
-
-    //         shadow_casters
-    //             .iter()
-    //             .for_each(|(_, mesh_handle, global_transform)| {
-    //                 let mesh = meshes.get(mesh_handle).unwrap();
-
-    //                 // set up pipelinespecialzation and bindings
-    //                 // see crates\bevy_render\src\mesh\mesh.rs:502
-    //                 let mut pipeline_specialization = PipelineSpecialization::default();
-    //                 pipeline_specialization.primitive_topology = mesh.primitive_topology();
-    //                 pipeline_specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
-    //                 if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
-    //                     mesh.primitive_topology()
-    //                 {
-    //                     pipeline_specialization.strip_index_format =
-    //                         mesh.indices().map(|indices| indices.into());
-    //                 }
-
-    //                 draw_context
-    //                     .set_pipeline(
-    //                         &mut draw,
-    //                         &SHADOW_PIPELINE_HANDLE.typed(),
-    //                         &pipeline_specialization,
-    //                     )
-    //                     .unwrap();
-
-    //                 draw_context
-    //                     .set_bind_groups_from_bindings(
-    //                         &mut draw,
-    //                         &mut [&mut render_resource_bindings],
-    //                     )
-    //                     .unwrap();
-
-    //                 if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-    //                     render_resource_context
-    //                         .get_asset_resource(mesh_handle, INDEX_BUFFER_ASSET_INDEX)
-    //                 {
-    //                     let index_format: IndexFormat = mesh.indices().unwrap().into();
-    //                     // skip draw_context because it requires a RenderPipeline
-    //                     // and doesn't actually do anything special
-    //                     draw.set_index_buffer(index_buffer_resource, 0, index_format);
-    //                 }
-
-    //                 if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
-    //                     render_resource_context
-    //                         .get_asset_resource(mesh_handle, VERTEX_ATTRIBUTE_BUFFER_ID)
-    //                 {
-    //                     // skip draw_context because it requires a RenderPipeline
-    //                     // and doesn't actually do anything special
-    //                     draw.set_vertex_buffer(0, vertex_attribute_buffer_resource, 0);
-    //                 }
-
-    //                 let index_range = match mesh.indices() {
-    //                     Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
-    //                     Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
-    //                     None => None,
-    //                 };
-
-    //                 if let Some(indices) = index_range.clone() {
-    //                     draw.draw_indexed(indices, 0, 0..1);
-    //                 } else {
-    //                     draw.draw(0..mesh.count_vertices() as u32, 0..1)
-    //                 }
-    //             });
-    //     }
-    // });
+                        // dbg!(mesh_handle);
+                        if let Some(indices) = index_range.clone() {
+                            draw.draw_indexed(indices, 0, 0..1);
+                        } else {
+                            draw.draw(0..mesh.count_vertices() as u32, 0..1)
+                        }
+                    },
+                );
+            }
+        });
 }

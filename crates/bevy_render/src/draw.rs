@@ -282,10 +282,13 @@ impl<'a> DrawContext<'a> {
             .get_layout()
             .ok_or(DrawError::PipelineHasNoLayout)?;
         'bind_group_descriptors: for bind_group_descriptor in layout.bind_groups.iter() {
+            dbg!(bind_group_descriptor);
             for bindings in render_resource_bindings.iter_mut() {
+                dbg!(&bindings);
                 if let Some(bind_group) =
                     bindings.update_bind_group(bind_group_descriptor, render_resource_context)
                 {
+                    dbg!(bind_group);
                     draw.set_bind_group(bind_group_descriptor.index, bind_group);
                     continue 'bind_group_descriptors;
                 }
@@ -358,6 +361,16 @@ impl<'a> DrawContext<'a> {
             }
         }
         Ok(())
+    }
+
+    pub fn set_push_constants(
+        &self,
+        draw: &mut Draw,
+        stages: BindingShaderStage,
+        offset: u32,
+        data: Vec<u8>,
+    ) {
+        draw.set_push_constants(stages, offset, data);
     }
 }
 

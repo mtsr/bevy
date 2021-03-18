@@ -246,6 +246,22 @@ impl WgpuFrom<BindingShaderStage> for wgpu::ShaderStage {
     }
 }
 
+impl WgpuFrom<wgpu::ShaderStage> for BindingShaderStage {
+    fn from(val: wgpu::ShaderStage) -> Self {
+        let mut result = BindingShaderStage::NONE;
+        if val.contains(wgpu::ShaderStage::VERTEX) {
+            result.insert(BindingShaderStage::VERTEX);
+        }
+        if val.contains(wgpu::ShaderStage::FRAGMENT) {
+            result.insert(BindingShaderStage::FRAGMENT);
+        }
+        if val.contains(wgpu::ShaderStage::COMPUTE) {
+            result.insert(BindingShaderStage::COMPUTE);
+        }
+        result
+    }
+}
+
 impl WgpuFrom<PushConstantRange> for wgpu::PushConstantRange {
     fn from(val: PushConstantRange) -> Self {
         wgpu::PushConstantRange {

@@ -1,7 +1,20 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    wgpu::{WgpuFeature, WgpuFeatures, WgpuLimits, WgpuOptions},
+};
 
 fn main() {
     App::build()
+        .insert_resource(WgpuOptions {
+            features: WgpuFeatures {
+                features: vec![WgpuFeature::PushConstants],
+            },
+            limits: WgpuLimits {
+                max_push_constant_size: 128,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
@@ -30,7 +43,7 @@ fn setup(
             ..Default::default()
         })
         // light
-        .spawn(LightBundle {
+        .spawn(PointLightBundle {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..Default::default()
         })
