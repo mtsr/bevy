@@ -1,6 +1,7 @@
 use crate::{
     pipeline::{
-        IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        BindingShaderStage, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout,
+        PipelineSpecialization,
     },
     renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
@@ -37,6 +38,11 @@ pub enum RenderCommand {
         index: u32,
         bind_group: BindGroupId,
         dynamic_uniform_indices: Option<Arc<[u32]>>,
+    },
+    SetPushConstants {
+        stages: BindingShaderStage,
+        offset: u32,
+        data: Vec<u8>,
     },
     DrawIndexed {
         indices: Range<u32>,
@@ -106,6 +112,14 @@ impl Draw {
             buffer,
             offset,
             index_format,
+        });
+    }
+
+    pub fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: Vec<u8>) {
+        self.render_command(RenderCommand::SetPushConstants {
+            stages,
+            offset,
+            data,
         });
     }
 

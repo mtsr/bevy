@@ -2,7 +2,7 @@ use crate::{renderer::WgpuRenderContext, wgpu_type_converter::WgpuInto, WgpuReso
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, BindingShaderStage, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_utils::tracing::trace;
@@ -44,6 +44,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass
             .set_index_buffer(buffer.slice(offset..), index_format.wgpu_into());
+    }
+
+    fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: &[u8]) {
+        self.render_pass
+            .set_push_constants(stages.wgpu_into(), offset, data);
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

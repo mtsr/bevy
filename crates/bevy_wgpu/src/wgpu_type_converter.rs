@@ -3,11 +3,11 @@ use bevy_render::{
     color::Color,
     pass::{LoadOp, Operations},
     pipeline::{
-        BindType, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace, IndexFormat,
-        InputStepMode, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
-        StencilFaceState, StencilOperation, StencilState, VertexAttribute, VertexBufferLayout,
-        VertexFormat,
+        BindType, BindingShaderStage, BlendFactor, BlendOperation, BlendState, ColorTargetState,
+        ColorWrite, CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace,
+        IndexFormat, InputStepMode, MultisampleState, PolygonMode, PrimitiveState,
+        PrimitiveTopology, PushConstantRange, StencilFaceState, StencilOperation, StencilState,
+        VertexAttribute, VertexBufferLayout, VertexFormat,
     },
     renderer::BufferUsage,
     texture::{
@@ -226,6 +226,31 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                 view_dimension: (*view_dimension).wgpu_into(),
                 format: (*format).wgpu_into(),
             },
+        }
+    }
+}
+
+impl WgpuFrom<BindingShaderStage> for wgpu::ShaderStage {
+    fn from(val: BindingShaderStage) -> Self {
+        let mut wgpu_val = wgpu::ShaderStage::NONE;
+        if val.contains(BindingShaderStage::VERTEX) {
+            wgpu_val.insert(wgpu::ShaderStage::VERTEX);
+        }
+        if val.contains(BindingShaderStage::FRAGMENT) {
+            wgpu_val.insert(wgpu::ShaderStage::FRAGMENT);
+        }
+        if val.contains(BindingShaderStage::COMPUTE) {
+            wgpu_val.insert(wgpu::ShaderStage::COMPUTE);
+        }
+        wgpu_val
+    }
+}
+
+impl WgpuFrom<PushConstantRange> for wgpu::PushConstantRange {
+    fn from(val: PushConstantRange) -> Self {
+        wgpu::PushConstantRange {
+            stages: val.stages.wgpu_into(),
+            range: val.range,
         }
     }
 }
