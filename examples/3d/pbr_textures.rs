@@ -21,13 +21,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let mut light_sphere = None;
+
     commands
         .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"))
         // Add a rotating light with a sphere to show it's position
         .spawn((Transform::default(), GlobalTransform::default(), Rotator))
         .with_children(|parent| {
             parent
-                .spawn(LightBundle {
+                .spawn(PointLightBundle {
                     transform: Transform::from_translation(Vec3::new(0.0, 0.7, 2.0)),
                     ..Default::default()
                 })
@@ -45,6 +47,9 @@ fn setup(
                         transform: Transform::default(),
                         ..Default::default()
                     });
+
+                    // TODO figure out a better way to remove shadowcaster
+                    light_sphere = parent.current_entity();
                 });
         })
         .spawn(PerspectiveCameraBundle {
@@ -52,6 +57,10 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..Default::default()
         });
+
+    if let Some(entity) = light_sphere {
+        commands.remove::<ShadowCaster>(entity);
+    }
 }
 
 /// this component indicates what entities should rotate

@@ -1,4 +1,4 @@
-use crate::{light::Light, material::StandardMaterial, render_graph::PIPELINE_HANDLE};
+use crate::{light::PointLight, material::StandardMaterial, render_graph::PIPELINE_HANDLE};
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
@@ -45,8 +45,8 @@ impl Default for PbrBundle {
 
 /// A component bundle for "light" entities
 #[derive(Debug, Bundle, Default)]
-pub struct LightBundle {
-    pub light: Light,
+pub struct PointLightBundle {
+    pub light: PointLight,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

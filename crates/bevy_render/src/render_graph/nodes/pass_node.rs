@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::{QueryState, ReadOnlyFetch, WorldQuery},
     world::World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::{tracing::debug, HashMap};
 use std::{fmt, ops::Deref};
 
 #[derive(Debug)]
@@ -354,18 +354,18 @@ where
 #[derive(Debug, Default)]
 pub struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
-    bind_groups: Vec<Option<BindGroupId>>,
+    bind_groups: HashMap<u32, Option<BindGroupId>>,
     vertex_buffers: Vec<Option<(BufferId, u64)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
 }
 
 impl DrawState {
     pub fn set_bind_group(&mut self, index: u32, bind_group: BindGroupId) {
-        self.bind_groups[index as usize] = Some(bind_group);
+        self.bind_groups.insert(index, Some(bind_group));
     }
 
     pub fn is_bind_group_set(&self, index: u32, bind_group: BindGroupId) -> bool {
-        self.bind_groups[index as usize] == Some(bind_group)
+        self.bind_groups.get(&index) == Some(&Some(bind_group))
     }
 
     pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId, offset: u64) {
@@ -390,7 +390,7 @@ impl DrawState {
     }
 
     pub fn can_draw(&self) -> bool {
-        self.bind_groups.iter().all(|b| b.is_some())
+        self.bind_groups.values().all(|b| b.is_some())
             && self.vertex_buffers.iter().all(|v| v.is_some())
     }
 
@@ -413,7 +413,12 @@ impl DrawState {
 
         self.pipeline = Some(handle.clone_weak());
         let layout = descriptor.get_layout().unwrap();
-        self.bind_groups.resize(layout.bind_groups.len(), None);
+        self.bind_groups.extend(
+            layout
+                .bind_groups
+                .iter()
+                .map(|bind_group| (bind_group.index, None)),
+        );
         self.vertex_buffers
             .resize(layout.vertex_buffer_descriptors.len(), None);
     }

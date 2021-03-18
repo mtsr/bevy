@@ -6,8 +6,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{light::Light, LightRaw};
+use crate::{light::PointLight, LightRaw};
 use bevy_asset::{Assets, Handle};
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     prelude::Mut,
     query::QueryState,
@@ -15,8 +16,9 @@ use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
-    camera::{OrthographicProjection, PerspectiveProjection},
+    camera::{CameraProjection, PerspectiveProjection},
     draw::{Draw, DrawContext, RenderCommand},
     mesh::{Indices, Mesh, INDEX_BUFFER_ASSET_INDEX, VERTEX_ATTRIBUTE_BUFFER_ID},
     pass::{
@@ -26,19 +28,21 @@ use bevy_render::{
     pipeline::{
         IndexFormat, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology, RenderPipeline,
     },
-    prelude::{Color, Msaa},
+    prelude::RenderPipelines,
     render_graph::{CommandQueue, DrawState, Node, ResourceSlotInfo, ResourceSlots, SystemNode},
     renderer::{
-        BufferId, RenderContext, RenderResourceBinding, RenderResourceBindings,
-        RenderResourceContext, RenderResourceId, RenderResourceType,
+        BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        RenderResourceBindings, RenderResourceContext, RenderResourceId, RenderResourceType,
     },
-    texture::Texture,
 };
 use bevy_transform::prelude::*;
 
 use crate::ShadowCaster;
 
-use super::{uniform::LIGHTS, SHADOW_PIPELINE_HANDLE};
+use super::{
+    uniform::{LIGHTS, SINGLE_LIGHT},
+    SHADOW_HEIGHT, SHADOW_PIPELINE_HANDLE, SHADOW_WIDTH,
+};
 
 pub static SHADOW_TEXTURE: &'static str = "shadow_texture";
 
@@ -145,7 +149,9 @@ where
                                     instances.clone(),
                                 );
                             } else {
+                                dbg!(&draw_state);
                                 // debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                panic!();
                             }
                         }
                         RenderCommand::Draw {
@@ -155,7 +161,9 @@ where
                             if draw_state.can_draw() {
                                 render_pass.draw(vertices.clone(), instances.clone());
                             } else {
+                                dbg!(&draw_state);
                                 // debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                panic!();
                             }
                         }
                         RenderCommand::SetVertexBuffer {
@@ -221,6 +229,7 @@ where
             config.0 = Some(ShadowsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 staging_buffer: None,
+                buffer: None,
                 draw: self.draw.clone(),
                 render_pipeline: RenderPipeline::new(SHADOW_PIPELINE_HANDLE.typed()),
             })
@@ -233,6 +242,7 @@ where
 #[derive(Debug, Default)]
 pub struct ShadowsNodeSystemState {
     staging_buffer: Option<BufferId>,
+    buffer: Option<BufferId>,
     command_queue: CommandQueue,
     draw: Arc<Mutex<Draw>>,
     render_pipeline: RenderPipeline,
@@ -245,43 +255,58 @@ pub fn shadows_node_system(
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     meshes: Res<Assets<Mesh>>,
-    lights: Query<(&Light, &GlobalTransform)>,
-    shadow_casters: Query<(&ShadowCaster, &Handle<Mesh>, &GlobalTransform)>,
+    lights: Query<(&PointLight, &GlobalTransform)>,
+    mut shadow_casters: Query<(
+        &ShadowCaster,
+        &Handle<Mesh>,
+        &GlobalTransform,
+        &mut RenderPipelines,
+    )>,
 ) {
-    let mut draw = state.draw.lock().unwrap();
+    let draw = state.draw.clone();
+    let mut draw = draw.lock().unwrap();
 
-    lights
-        .iter()
-        .enumerate()
-        .for_each(|(i, (light, global_transform))| {
-            //     let projection = PerspectiveProjection {
-            //         fov: PI / 2.0f32,
-            //         aspect_ratio: super::SHADOW_WIDTH as f32 / super::SHADOW_HEIGHT as f32,
-            //         near: 1.0f32,
-            //         far: light.range,
-            //     };
-            // let (buffer, range) = if let RenderResourceBinding::Buffer { buffer, range, .. } =
-            //     render_resource_bindings.get(LIGHTS).unwrap()
-            // {
-            //     (buffer.clone(), range.clone())
-            // } else {
-            //     panic!();
-            // };
+    // see https://www.khronos.org/opengl/wiki/Cubemap_Texture
+    let faces = [
+        Vec3::X,        // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
+        Vec3::X * -1.0, // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+        Vec3::Y,        // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+        Vec3::Y * -1.0, // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+        Vec3::Z,        // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+        Vec3::Z * -1.0, // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+    ];
 
-            // render_resource_bindings.set(
-            //     LIGHTS,
-            //     RenderResourceBinding::Buffer {
-            //         buffer: buffer.clone(),
-            //         range: range.clone(),
-            //         dynamic_index: Some(32 + (std::mem::size_of::<LightRaw>() * i) as u32),
-            //     },
-            // );
+    let up = [
+        Vec3::Y * -1.0,
+        Vec3::Y * -1.0,
+        Vec3::Z,
+        Vec3::Z * -1.0,
+        Vec3::Y * -1.0,
+        Vec3::Y * -1.0,
+    ];
 
-            // TODO figure out how to set the correct camera for each of the 6 passes for each light
+    let (lights_buffer, range) =
+        if let Some(RenderResourceBinding::Buffer { buffer, range, .. }) =
+            render_resource_bindings.get(LIGHTS)
+        {
+            (*buffer, range.clone())
+        } else {
+            panic!()
+        };
 
-            shadow_casters
-                .iter()
-                .for_each(|(_, mesh_handle, global_transform)| {
+    lights.iter().for_each(|(light, global_transform)| {
+        for face in 0..6 {
+            render_resource_bindings.set(
+                SINGLE_LIGHT,
+                RenderResourceBinding::Buffer {
+                    buffer: lights_buffer,
+                    range: range.clone(),
+                    dynamic_index: Some(std::mem::size_of::<[f32; 5]>() as u32 + 0),
+                },
+            );
+
+            shadow_casters.iter_mut().for_each(
+                |(_, mesh_handle, global_transform, mut render_pipelines)| {
                     let mesh = meshes.get(mesh_handle).unwrap();
 
                     // set up pipelinespecialzation and bindings
@@ -289,9 +314,9 @@ pub fn shadows_node_system(
                     let mut pipeline_specialization = PipelineSpecialization::default();
                     pipeline_specialization.primitive_topology = mesh.primitive_topology();
                     pipeline_specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
-                    // pipeline_specialization
-                    //     .dynamic_bindings
-                    //     .insert(LIGHTS.to_string());
+                    pipeline_specialization
+                        .dynamic_bindings
+                        .insert(SINGLE_LIGHT.to_string());
                     if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
                         mesh.primitive_topology()
                     {
@@ -307,10 +332,21 @@ pub fn shadows_node_system(
                         )
                         .unwrap();
 
+                    // for binding in &render_resource_bindings.bindings {
+                    //     dbg!(binding);
+                    // }
+
+                    // for binding in &render_pipelines.bindings.bindings {
+                    //     dbg!(binding);
+                    // }
+
                     draw_context
                         .set_bind_groups_from_bindings(
                             &mut draw,
-                            &mut [&mut render_resource_bindings],
+                            &mut [
+                                &mut render_resource_bindings,
+                                &mut render_pipelines.bindings,
+                            ],
                         )
                         .unwrap();
 
@@ -339,11 +375,145 @@ pub fn shadows_node_system(
                         None => None,
                     };
 
+                    // dbg!(mesh_handle);
                     if let Some(indices) = index_range.clone() {
                         draw.draw_indexed(indices, 0, 0..1);
                     } else {
                         draw.draw(0..mesh.count_vertices() as u32, 0..1)
                     }
-                });
-        });
+                },
+            );
+        }
+    });
+
+    // let buffer_size = std::mem::size_of::<LightRaw>()
+    //     + std::mem::size_of::<[f32; 16]>()
+    //     + std::mem::size_of::<i32>();
+    // if state.staging_buffer.is_none() {
+    //     let buffer = render_resource_context.create_buffer(BufferInfo {
+    //         size: buffer_size,
+    //         buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+    //         ..Default::default()
+    //     });
+    //     render_resource_bindings.set(
+    //         SINGLE_LIGHT,
+    //         RenderResourceBinding::Buffer {
+    //             buffer,
+    //             range: 0..buffer_size as u64,
+    //             dynamic_index: None,
+    //         },
+    //     );
+    //     state.buffer = Some(buffer);
+
+    //     let staging_buffer = render_resource_context.create_buffer(BufferInfo {
+    //         size: buffer_size,
+    //         buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+    //         mapped_at_creation: false,
+    //     });
+    //     state.staging_buffer = Some(staging_buffer);
+    // }
+
+    // let staging_buffer = state.staging_buffer.unwrap();
+    // let buffer = state.buffer.unwrap();
+
+    // lights.iter().for_each(|(light, global_transform)| {
+    //     for face in 0..6 {
+    //         let projection = PerspectiveProjection {
+    //             fov: PI / 2.0,
+    //             aspect_ratio: SHADOW_WIDTH as f32 / SHADOW_HEIGHT as f32,
+    //             near: 0.1,
+    //             far: light.range,
+    //         }
+    //         .get_projection_matrix();
+    //         let view = Mat4::look_at_rh(faces[face], Vec3::ZERO, up[face]);
+
+    //         let light_raw = LightRaw::from(light, global_transform);
+    //         let light_data = &[
+    //             light_raw.as_bytes(),
+    //             (projection * view).to_cols_array().as_bytes(),
+    //             (face as i32).as_bytes(),
+    //         ]
+    //         .concat();
+
+    //         render_resource_context
+    //             .map_buffer(staging_buffer, bevy_render::renderer::BufferMapMode::Write);
+    //         render_resource_context.write_mapped_buffer(
+    //             staging_buffer,
+    //             0..buffer_size as u64,
+    //             &mut |data, _renderer| data[0..buffer_size].copy_from_slice(light_data),
+    //         );
+    //         render_resource_context.unmap_buffer(staging_buffer);
+    //         state.command_queue.copy_buffer_to_buffer(
+    //             staging_buffer,
+    //             0,
+    //             buffer,
+    //             0,
+    //             buffer_size as u64,
+    //         );
+
+    //         shadow_casters
+    //             .iter()
+    //             .for_each(|(_, mesh_handle, global_transform)| {
+    //                 let mesh = meshes.get(mesh_handle).unwrap();
+
+    //                 // set up pipelinespecialzation and bindings
+    //                 // see crates\bevy_render\src\mesh\mesh.rs:502
+    //                 let mut pipeline_specialization = PipelineSpecialization::default();
+    //                 pipeline_specialization.primitive_topology = mesh.primitive_topology();
+    //                 pipeline_specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
+    //                 if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+    //                     mesh.primitive_topology()
+    //                 {
+    //                     pipeline_specialization.strip_index_format =
+    //                         mesh.indices().map(|indices| indices.into());
+    //                 }
+
+    //                 draw_context
+    //                     .set_pipeline(
+    //                         &mut draw,
+    //                         &SHADOW_PIPELINE_HANDLE.typed(),
+    //                         &pipeline_specialization,
+    //                     )
+    //                     .unwrap();
+
+    //                 draw_context
+    //                     .set_bind_groups_from_bindings(
+    //                         &mut draw,
+    //                         &mut [&mut render_resource_bindings],
+    //                     )
+    //                     .unwrap();
+
+    //                 if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+    //                     render_resource_context
+    //                         .get_asset_resource(mesh_handle, INDEX_BUFFER_ASSET_INDEX)
+    //                 {
+    //                     let index_format: IndexFormat = mesh.indices().unwrap().into();
+    //                     // skip draw_context because it requires a RenderPipeline
+    //                     // and doesn't actually do anything special
+    //                     draw.set_index_buffer(index_buffer_resource, 0, index_format);
+    //                 }
+
+    //                 if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+    //                     render_resource_context
+    //                         .get_asset_resource(mesh_handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+    //                 {
+    //                     // skip draw_context because it requires a RenderPipeline
+    //                     // and doesn't actually do anything special
+    //                     draw.set_vertex_buffer(0, vertex_attribute_buffer_resource, 0);
+    //                 }
+
+    //                 let index_range = match mesh.indices() {
+    //                     Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
+    //                     Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
+    //                     None => None,
+    //                 };
+
+    //                 if let Some(indices) = index_range.clone() {
+    //                     draw.draw_indexed(indices, 0, 0..1);
+    //                 } else {
+    //                     draw.draw(0..mesh.count_vertices() as u32, 0..1)
+    //                 }
+    //             });
+    //     }
+    // });
 }

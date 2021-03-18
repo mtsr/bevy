@@ -37,7 +37,7 @@
 const int MAX_LIGHTS = 10;
 const float BIAS = 0.5;
 
-struct Light {
+struct PointLight {
     mat4 proj;
     vec3 pos;
     float inverseRadiusSquared;
@@ -63,7 +63,7 @@ layout(set = 0, binding = 0) uniform Camera {
 layout(set = 1, binding = 0) uniform Lights {
     vec3 AmbientColor;
     uvec4 NumLights;
-    Light SceneLights[MAX_LIGHTS];
+    PointLight PointLights[MAX_LIGHTS];
 };
 
 layout(set = 3, binding = 0) uniform StandardMaterial_base_color {
@@ -350,14 +350,14 @@ void main() {
     // accumulate color
     vec3 light_accum = vec3(0.0);
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
-        Light light = SceneLights[i];
+        PointLight light = PointLights[i];
 
-        vec3 pos_to_light = light.pos.xyz - v_WorldPosition.xyz;
-        vec3 L = normalize(pos_to_light);
-        float distance_square = dot(pos_to_light, pos_to_light);
+        vec3 light_to_frag = light.pos - v_WorldPosition.xyz;
+        vec3 L = normalize(light_to_frag);
+        float distance_square = dot(light_to_frag, light_to_frag);
 
 #    ifdef STANDARDMATERIAL_SHADOW_MAP
-        float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(pos_to_light, i)).r;
+        float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
 
         float near = light.proj[3][3] + light.proj[2][3];
         float far = light.proj[3][3] - light.proj[2][3];
@@ -365,7 +365,8 @@ void main() {
         shadow_depth = shadow_depth * 2.0 - 1.0;
 
         float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;
-        o_Target = vec4(vec3(shadow_depth / far), 1.0);
+        o_Target = vec4(vec3(shadow / far), 1.0);
+        // o_Target = vec4(light_to_frag, 1.0);
 #    else
         float shadow = 1.0;
 #    endif

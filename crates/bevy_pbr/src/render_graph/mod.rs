@@ -4,7 +4,6 @@ mod shadows_node;
 
 use bevy_ecs::world::World;
 pub use lights_node::*;
-use node::{SHADOWS, SHADOW_TEXTURE};
 pub use pipeline::*;
 pub use shadows_node::*;
 
@@ -20,6 +19,7 @@ pub mod node {
 /// the names of pbr uniforms
 pub mod uniform {
     pub const LIGHTS: &str = "Lights";
+    pub const SINGLE_LIGHT: &str = "SingleLight";
 }
 
 use crate::prelude::StandardMaterial;
@@ -27,7 +27,10 @@ use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::PipelineDescriptor,
-    render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode, TextureNode},
+    render_graph::{
+        base::{self, node::CAMERA_3D},
+        AssetRenderResourcesNode, RenderGraph, RenderResourcesNode, TextureNode,
+    },
     renderer::{RenderResourceBinding, RenderResourceBindings},
     shader::Shader,
     texture::{
@@ -37,7 +40,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 
-pub const MAX_LIGHTS: usize = 10;
+pub const MAX_POINT_LIGHTS: usize = 10;
 pub const SHADOW_WIDTH: u32 = 1024;
 pub const SHADOW_HEIGHT: u32 = 1024;
 
@@ -57,7 +60,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
         );
 
         let texture_descriptor = TextureDescriptor {
-            size: Extent3d::new(SHADOW_WIDTH, SHADOW_HEIGHT, (MAX_LIGHTS * 6) as u32),
+            size: Extent3d::new(SHADOW_WIDTH, SHADOW_HEIGHT, (MAX_POINT_LIGHTS * 6) as u32),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
@@ -82,11 +85,16 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             ),
         );
 
-        graph.add_system_node(node::LIGHTS, LightsNode::new(MAX_LIGHTS));
+        graph.add_system_node(node::LIGHTS, LightsNode::new(MAX_POINT_LIGHTS));
 
         graph.add_system_node(node::SHADOWS, ShadowsNode::<&base::MainPass>::new());
 
         graph.add_node_edge(node::LIGHTS, node::SHADOWS).unwrap();
+        graph.add_node_edge(node::TRANSFORM, node::SHADOWS).unwrap();
+        graph
+            .add_node_edge(base::node::CAMERA_3D, node::SHADOWS)
+            .unwrap();
+
         graph
             .add_slot_edge(
                 node::SHADOW_TEXTURE,

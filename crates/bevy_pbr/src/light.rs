@@ -6,27 +6,25 @@ use bevy_render::{
     color::Color,
 };
 use bevy_transform::components::GlobalTransform;
-use std::ops::Range;
+use std::{f32::consts::PI, ops::Range};
 
 /// A point light
 #[derive(Debug, Reflect)]
 #[reflect(Component)]
-pub struct Light {
+pub struct PointLight {
     pub color: Color,
     pub fov: f32,
-    pub min_depth: f32,
     pub intensity: f32,
-    pub range: f32,
+    pub range: Range<f32>,
 }
 
-impl Default for Light {
+impl Default for PointLight {
     fn default() -> Self {
-        Light {
+        PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            min_depth: 0.1,
-            fov: f32::to_radians(60.0),
+            fov: 2.0 * PI,
             intensity: 100.0,
-            range: 20.0,
+            range: 0.1..20.0,
         }
     }
 }
@@ -35,19 +33,25 @@ impl Default for Light {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LightRaw {
     pub proj: [[f32; 4]; 4],
-    pub pos: [f32; 4],
+    pub pos: [f32; 3],
+    pub inverse_range_squared: f32,
     pub color: [f32; 4],
 }
 
 unsafe impl Byteable for LightRaw {}
 
 impl LightRaw {
-    pub fn from(light: &Light, global_transform: &GlobalTransform) -> LightRaw {
+    pub fn from(
+        light: &PointLight,
+        global_transform: &GlobalTransform,
+        fov: Option<f32>,
+        aspect_ratio: Option<f32>,
+    ) -> LightRaw {
         let perspective = PerspectiveProjection {
-            fov: light.fov,
-            aspect_ratio: 1.0,
-            near: light.min_depth,
-            far: light.range,
+            fov: fov.unwrap_or(light.fov),
+            aspect_ratio: aspect_ratio.unwrap_or(1.0),
+            near: light.range.start,
+            far: light.range.end,
         };
 
         let proj =
@@ -59,7 +63,8 @@ impl LightRaw {
         let color: [f32; 4] = (light.color * light.intensity).into();
         LightRaw {
             proj: proj.to_cols_array_2d(),
-            pos: [x, y, z, 1.0 / (light.range * light.range)], // pos.w is the attenuation.
+            pos: [x, y, z],
+            inverse_range_squared: 1.0 / (light.range.end * light.range.end),
             color,
         }
     }
