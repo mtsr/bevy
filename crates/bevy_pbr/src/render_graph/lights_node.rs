@@ -1,5 +1,5 @@
 use crate::{
-    light::{AmbientLight, Light, LightRaw},
+    light::{AmbientLight, LightRaw, PointLight},
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
@@ -82,7 +82,7 @@ pub fn lights_node_system(
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel
     // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    query: Query<(&Light, &GlobalTransform)>,
+    query: Query<(&PointLight, &GlobalTransform)>,
 ) {
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
@@ -146,7 +146,9 @@ pub fn lights_node_system(
                 .iter()
                 .zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
             {
-                slot.copy_from_slice(LightRaw::from(&light, &global_transform).as_bytes());
+                slot.copy_from_slice(
+                    LightRaw::from(&light, &global_transform, None, None).as_bytes(),
+                );
             }
         },
     );

@@ -42,7 +42,7 @@ fn setup(
 ) {
     commands
         // light
-        .spawn(LightBundle {
+        .spawn(PointLightBundle {
             transform: Transform::from_xyz(4.0, -4.0, 5.0),
             ..Default::default()
         })

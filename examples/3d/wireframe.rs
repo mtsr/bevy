@@ -49,7 +49,7 @@ fn setup(
         })
         .with(Wireframe) // This enables wireframe drawing on this entity
         // light
-        .spawn(LightBundle {
+        .spawn(PointLightBundle {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..Default::default()
         })

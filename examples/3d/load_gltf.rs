@@ -11,7 +11,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"))
-        .spawn(LightBundle {
+        .spawn(PointLightBundle {
             transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
