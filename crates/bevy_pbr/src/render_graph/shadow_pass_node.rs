@@ -3,6 +3,7 @@ use bevy_ecs::{
     query::{QueryState, ReadOnlyFetch, WorldQuery},
     world::{Mut, World},
 };
+use bevy_math::Vec3;
 use bevy_render::{
     camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
@@ -18,8 +19,11 @@ use bevy_render::{
         RenderResourceType,
     },
 };
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::debug, HashMap};
 use std::{borrow::Cow, fmt, marker::PhantomData};
+
+use crate::PointLight;
 
 pub static SHADOW_TEXTURE: &'static str = "shadow_texture";
 
@@ -86,6 +90,33 @@ where
         let query_state = self.query_state.get_or_insert_with(|| world.query());
         let cameras = &self.cameras;
         let commands = &mut self.commands;
+
+        let mut pointlights = vec![];
+        for (pointlight, global_transform) in
+            world.query::<(&PointLight, &GlobalTransform)>().iter(world)
+        {
+            pointlights.push(((*pointlight).clone(), (*global_transform).clone()));
+        }
+
+        // see https://www.khronos.org/opengl/wiki/Cubemap_Texture
+        let faces = [
+            Vec3::X,        // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
+            Vec3::X * -1.0, // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+            Vec3::Y,        // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+            Vec3::Y * -1.0, // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+            Vec3::Z,        // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+            Vec3::Z * -1.0, // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+        ];
+
+        let up = [
+            Vec3::Y * -1.0,
+            Vec3::Y * -1.0,
+            Vec3::Z,
+            Vec3::Z * -1.0,
+            Vec3::Y * -1.0,
+            Vec3::Y * -1.0,
+        ];
+
         world.resource_scope(|mut active_cameras: Mut<ActiveCameras>, world| {
             let mut pipeline_camera_commands = HashMap::default();
             let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
@@ -101,58 +132,63 @@ where
                     continue;
                 };
 
-                let visible_entities = if let Some(entity) = active_camera.entity {
-                    world.get::<VisibleEntities>(entity).unwrap()
-                } else {
-                    continue;
-                };
-                for visible_entity in visible_entities.iter() {
-                    if query_state.get(world, visible_entity.entity).is_err() {
-                        // visible entity does not match the Pass query
-                        continue;
-                    }
-
-                    let draw = if let Some(draw) = world.get::<Draw<P>>(visible_entity.entity) {
-                        draw
-                    } else {
-                        continue;
-                    };
-
-                    if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
-                        if !visible.is_visible {
+                for (pointlight, global_transform) in pointlights.iter() {
+                    for (face, up) in faces.iter().zip(up.iter()) {
+                        let visible_entities = if let Some(entity) = active_camera.entity {
+                            world.get::<VisibleEntities>(entity).unwrap()
+                        } else {
                             continue;
-                        }
-                    }
-                    for render_command in draw.render_commands.iter() {
-                        commands.push(render_command.clone());
-                        // whenever a new pipeline is set, ensure the relevant camera bind groups are set
-                        if let RenderCommand::SetPipeline { pipeline } = render_command {
-                            let bind_groups = pipeline_camera_commands
-                                .entry(pipeline.clone_weak())
-                                .or_insert_with(|| {
-                                    let descriptor = pipelines.get(pipeline).unwrap();
-                                    let layout = descriptor.get_layout().unwrap();
-                                    let mut commands = Vec::new();
-                                    for bind_group_descriptor in layout.bind_groups.iter() {
-                                        if let Some(bind_group) =
-                                            active_camera.bindings.update_bind_group(
-                                                bind_group_descriptor,
-                                                render_resource_context,
-                                            )
-                                        {
-                                            commands.push(RenderCommand::SetBindGroup {
-                                                index: bind_group_descriptor.index,
-                                                bind_group: bind_group.id,
-                                                dynamic_uniform_indices: bind_group
-                                                    .dynamic_uniform_indices
-                                                    .clone(),
-                                            })
-                                        }
-                                    }
-                                    commands
-                                });
+                        };
+                        for visible_entity in visible_entities.iter() {
+                            if query_state.get(world, visible_entity.entity).is_err() {
+                                // visible entity does not match the Pass query
+                                continue;
+                            }
 
-                            commands.extend(bind_groups.iter().cloned());
+                            let draw =
+                                if let Some(draw) = world.get::<Draw<P>>(visible_entity.entity) {
+                                    draw
+                                } else {
+                                    continue;
+                                };
+
+                            if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
+                                if !visible.is_visible {
+                                    continue;
+                                }
+                            }
+                            for render_command in draw.render_commands.iter() {
+                                commands.push(render_command.clone());
+                                // whenever a new pipeline is set, ensure the relevant camera bind groups are set
+                                if let RenderCommand::SetPipeline { pipeline } = render_command {
+                                    let bind_groups = pipeline_camera_commands
+                                        .entry(pipeline.clone_weak())
+                                        .or_insert_with(|| {
+                                            let descriptor = pipelines.get(pipeline).unwrap();
+                                            let layout = descriptor.get_layout().unwrap();
+                                            let mut commands = Vec::new();
+                                            for bind_group_descriptor in layout.bind_groups.iter() {
+                                                if let Some(bind_group) =
+                                                    active_camera.bindings.update_bind_group(
+                                                        bind_group_descriptor,
+                                                        render_resource_context,
+                                                    )
+                                                {
+                                                    commands.push(RenderCommand::SetBindGroup {
+                                                        index: bind_group_descriptor.index,
+                                                        bind_group: bind_group.id,
+                                                        dynamic_uniform_indices: bind_group
+                                                            .dynamic_uniform_indices
+                                                            .clone(),
+                                                    })
+                                                }
+                                            }
+                                            commands
+                                        });
+
+                                    commands.extend(bind_groups.iter().cloned());
+                                }
+                            }
                         }
                     }
                 }

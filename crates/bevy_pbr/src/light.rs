@@ -5,7 +5,7 @@ use bevy_render::color::Color;
 use bevy_transform::components::GlobalTransform;
 
 /// A point light
-#[derive(Debug, Reflect)]
+#[derive(Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
