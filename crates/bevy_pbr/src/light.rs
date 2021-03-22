@@ -9,7 +9,7 @@ use bevy_transform::components::GlobalTransform;
 use std::{f32::consts::PI, ops::Range};
 
 /// A point light
-#[derive(Debug, Reflect)]
+#[derive(Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
