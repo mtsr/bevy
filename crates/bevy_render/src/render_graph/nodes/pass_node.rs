@@ -316,6 +316,13 @@ where
                         );
                         draw_state.set_bind_group(index, bind_group);
                     }
+                    RenderCommand::SetPushConstants {
+                        stages,
+                        offset,
+                        data,
+                    } => {
+                        render_pass.set_push_constants(stages, offset, &*data);
+                    }
                 }
             }
         });
