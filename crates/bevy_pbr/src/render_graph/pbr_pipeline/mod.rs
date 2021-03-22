@@ -80,7 +80,6 @@ pub(crate) fn build_shadowmap_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![],
         ..PipelineDescriptor::new(ShaderStages {

@@ -7,7 +7,7 @@ use naga::{ScalarKind, StorageClass, VectorSize};
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
-        UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
+        PushConstantRange, UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
     shader::ShaderLayout,
     texture::{StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension},
@@ -31,10 +31,13 @@ impl ShaderLayout {
         };
         let bind_groups = reflect_bind_groups(&module, shader_stage);
 
+        let mut push_constant_ranges = reflect_push_constants(&module, shader_stage);
+
         ShaderLayout {
             bind_groups,
             vertex_buffer_layout,
             entry_point: entry_point.name.clone(),
+            push_constant_ranges,
         }
     }
 }
@@ -204,6 +207,34 @@ fn reflect_bind_groups(
     groups.sort_by_key(|bind_group| bind_group.index);
 
     groups
+}
+
+fn reflect_push_constants(
+    module: &naga::Module,
+    shader_stage: BindingShaderStage,
+) -> Vec<PushConstantRange> {
+    module
+        .global_variables
+        .iter()
+        .map(|(_, variable)| variable)
+        .filter(|variable| matches!(variable.class, StorageClass::PushConstant))
+        .scan(0u32, |offset, variable| {
+            match module.types.try_get(variable.ty).unwrap().inner {
+                naga::TypeInner::Scalar { width, .. }
+                | naga::TypeInner::Matrix { width, .. }
+                | naga::TypeInner::Vector { width, .. } => {
+                    let width = width as u32;
+                    let range = *offset..width;
+                    *offset += width;
+                    Some(PushConstantRange {
+                        stages: shader_stage,
+                        range,
+                    })
+                }
+                _ => unimplemented!(),
+            }
+        })
+        .collect()
 }
 
 fn reflect_bind_type(
@@ -427,6 +458,9 @@ mod tests {
                 mat4 ViewProj;
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
+            layout(push_constant) uniform SomeTestUniform {
+                vec3 SomeTestField;
+            };
 
             layout(set = 2, binding = 0) uniform texture2D ColorMaterial_texture;
             layout(set = 2, binding = 1) uniform sampler ColorMaterial_texture_sampler;
@@ -548,7 +582,11 @@ mod tests {
                             },
                         ]
                     )
-                ]
+                ],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: BindingShaderStage::VERTEX,
+                    range: 0..16
+                }],
             }
         );
     }

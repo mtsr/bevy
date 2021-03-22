@@ -8,8 +8,7 @@ use bevy_render::{
     camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
     pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-        TextureAttachment,
+        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachment, TextureAttachment,
     },
     pipeline::{IndexFormat, PipelineDescriptor},
     prelude::Visible,
@@ -49,7 +48,7 @@ impl<P: Send + Sync + 'static, Q: WorldQuery> ShadowPassNode<P, Q> {
         let descriptor = PassDescriptor {
             // TODO msaa
             color_attachments: vec![],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 attachment: TextureAttachment::Input("depth".to_string()),
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(1.0),
@@ -117,7 +116,7 @@ where
             Vec3::Y * -1.0,
         ];
 
-        world.resource_scope(|mut active_cameras: Mut<ActiveCameras>, world| {
+        world.resource_scope(|world, mut active_cameras: Mut<ActiveCameras>| {
             let mut pipeline_camera_commands = HashMap::default();
             let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
             let render_resource_context = &**world
@@ -289,6 +288,9 @@ where
                             dynamic_uniform_indices.as_deref()
                         );
                         draw_state.set_bind_group(index, bind_group);
+                    },
+                    RenderCommand::SetPushConstants { .. } => {
+                        todo!()
                     }
                 }
             }
