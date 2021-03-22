@@ -373,6 +373,19 @@ impl<'a> DrawContext<'a> {
         }
         Ok(())
     }
+
+    pub fn set_push_constants(
+        &self,
+        draw: &mut Draw,
+        stages: BindingShaderStage,
+        offset: u32,
+        data: Vec<u8>,
+    ) -> Result<(), DrawError> {
+        draw.set_push_constants(stages, offset, data);
+
+        // TODO check for issues
+        Ok(())
+    }
 }
 
 pub trait Drawable<P: Send + Sync + 'static> {
