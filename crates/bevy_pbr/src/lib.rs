@@ -18,6 +18,7 @@ use bevy_ecs::system::IntoSystem;
 use bevy_render::{
     draw, mesh, pipeline,
     prelude::{Color, Draw, RenderPipelines},
+    render_graph::base::MainPass,
     shader, RenderStage,
 };
 use material::StandardMaterial;
@@ -35,6 +36,10 @@ impl Plugin for PbrPlugin {
             .register_type::<ShadowPass>()
             .register_type::<Draw<ShadowPass>>()
             .register_type::<RenderPipelines<ShadowPass>>()
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                shader::asset_shader_defs_system::<StandardMaterial, MainPass>.system(),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<StandardMaterial, ShadowPass>.system(),
