@@ -16,8 +16,9 @@ use bevy_render::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
         BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceContext,
-        RenderResourceType,
+        RenderResourceId, RenderResourceType,
     },
+    texture::TextureViewDescriptor,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::debug, HashMap};
@@ -30,11 +31,16 @@ use crate::{
 
 pub static SHADOW_TEXTURE: &'static str = "shadow_texture";
 
+struct Pass {
+    shadow_texture_layer: u32,
+    commands: Vec<RenderCommand>,
+}
+
 pub struct ShadowPassNode<P: Send + Sync + 'static, Q: WorldQuery> {
     descriptor: PassDescriptor,
     cameras: Vec<String>,
     query_state: Option<QueryState<Q>>,
-    commands: Vec<RenderCommand>,
+    passes: Vec<Pass>,
     marker: PhantomData<P>,
 }
 
@@ -67,7 +73,7 @@ impl<P: Send + Sync + 'static, Q: WorldQuery> ShadowPassNode<P, Q> {
             descriptor,
             cameras: Vec::new(),
             query_state: None,
-            commands: Vec::new(),
+            passes: Vec::new(),
             marker: Default::default(),
         }
     }
@@ -92,7 +98,7 @@ where
     fn prepare(&mut self, world: &mut World) {
         let query_state = self.query_state.get_or_insert_with(|| world.query());
         let cameras = &self.cameras;
-        let commands = &mut self.commands;
+        let passes = &mut self.passes;
 
         let mut pointlights = vec![];
         for (pointlight, global_transform) in
@@ -137,7 +143,7 @@ where
 
                 for (light_index, (pointlight, global_transform)) in pointlights.iter().enumerate()
                 {
-                    let proj = Mat4::perspective_rh(
+                    let proj = Mat4::perspective_lh(
                         PI / 2.0,
                         SHADOW_WIDTH as f32 / SHADOW_HEIGHT as f32,
                         pointlight.range.start,
@@ -145,9 +151,11 @@ where
                     );
 
                     for (face_index, (face, up)) in faces.iter().zip(up.iter()).enumerate() {
-                        let view = Transform::from_translation(global_transform.translation)
-                            .looking_at(*face, *up)
+                        let mut view = Transform::from_translation(global_transform.translation)
+                            .looking_at(global_transform.translation - *face, *up)
                             .compute_matrix();
+
+                        let mut commands = vec![];
 
                         let visible_entities = if let Some(entity) = active_camera.entity {
                             world.get::<VisibleEntities>(entity).unwrap()
@@ -220,6 +228,12 @@ where
                                 }
                             }
                         }
+
+                        let shadow_texture_layer = (light_index * 6 + face_index) as u32;
+                        passes.push(Pass {
+                            shadow_texture_layer,
+                            commands,
+                        });
                     }
                 }
             }
@@ -233,109 +247,118 @@ where
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let shadow_texture =
-            TextureAttachment::Id(input.get(SHADOW_TEXTURE).unwrap().get_texture().unwrap());
-
-        self.descriptor
-            .depth_stencil_attachment
-            .as_mut()
-            .unwrap()
-            .attachment = shadow_texture;
-
         let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
         let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
 
         let mut draw_state = DrawState::default();
-        let commands = &mut self.commands;
-        render_context.begin_pass(
+        let passes = &mut self.passes;
+        for mut pass in passes.drain(..) {
+            let render_resource_context = render_context.resources_mut();
+
+            let shadow_texture = input.get(SHADOW_TEXTURE).unwrap();
+            let shadow_texture = shadow_texture.get_texture().unwrap();
+            let shadow_texture = render_resource_context.create_texture_view(
+                shadow_texture.get_texture_id(),
+                TextureViewDescriptor {
+                    base_array_layer: pass.shadow_texture_layer,
+                    // array_layer_count: ()
+                    ..Default::default()
+                },
+            );
+
+            self.descriptor
+                .depth_stencil_attachment
+                .as_mut()
+                .unwrap()
+                .attachment = RenderResourceId::Texture(shadow_texture).into();
+
+            render_context.begin_pass(
             &self.descriptor,
             &render_resource_bindings,
-            &mut |render_pass| {
-            for render_command in commands.drain(..) {
-                match render_command {
-                    RenderCommand::SetPipeline { pipeline } => {
-                        if draw_state.is_pipeline_set(pipeline.clone_weak()) {
-                            continue;
+                &mut |render_pass| {
+                for render_command in pass.commands.drain(..) {
+                    match render_command {
+                        RenderCommand::SetPipeline { pipeline } => {
+                            if draw_state.is_pipeline_set(pipeline.clone_weak()) {
+                                continue;
+                            }
+                            render_pass.set_pipeline(&pipeline);
+                            let descriptor = pipelines.get(&pipeline).unwrap();
+                            draw_state.set_pipeline(&pipeline, descriptor);
                         }
-                        render_pass.set_pipeline(&pipeline);
-                        let descriptor = pipelines.get(&pipeline).unwrap();
-                        draw_state.set_pipeline(&pipeline, descriptor);
-                    }
-                    RenderCommand::DrawIndexed {
-                        base_vertex,
-                        indices,
-                        instances,
-                    } => {
-                        if draw_state.can_draw_indexed() {
-                            render_pass.draw_indexed(
-                                indices.clone(),
-                                base_vertex,
-                                instances.clone(),
-                            );
-                        } else {
-                            panic!();
-                            debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                        RenderCommand::DrawIndexed {
+                            base_vertex,
+                            indices,
+                            instances,
+                        } => {
+                            if draw_state.can_draw_indexed() {
+                                render_pass.draw_indexed(
+                                    indices.clone(),
+                                    base_vertex,
+                                    instances.clone(),
+                                );
+                            } else {
+                                panic!();
+                                debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                            }
                         }
-                    }
-                    RenderCommand::Draw { vertices, instances } => {
-                        if draw_state.can_draw() {
-                            render_pass.draw(vertices.clone(), instances.clone());
-                        } else {
-                            panic!();
-                            debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                        RenderCommand::Draw { vertices, instances } => {
+                            if draw_state.can_draw() {
+                                render_pass.draw(vertices.clone(), instances.clone());
+                            } else {
+                                panic!();
+                                debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                            }
                         }
-                    }
-                    RenderCommand::SetVertexBuffer {
-                        buffer,
-                        offset,
-                        slot,
-                    } => {
-                        if draw_state.is_vertex_buffer_set(slot, buffer, offset) {
-                            continue;
+                        RenderCommand::SetVertexBuffer {
+                            buffer,
+                            offset,
+                            slot,
+                        } => {
+                            if draw_state.is_vertex_buffer_set(slot, buffer, offset) {
+                                continue;
+                            }
+                            render_pass.set_vertex_buffer(slot, buffer, offset);
+                            draw_state.set_vertex_buffer(slot, buffer, offset);
                         }
-                        render_pass.set_vertex_buffer(slot, buffer, offset);
-                        draw_state.set_vertex_buffer(slot, buffer, offset);
-                    }
-                    RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
-                        if draw_state.is_index_buffer_set(buffer, offset, index_format) {
-                            continue;
+                        RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
+                            if draw_state.is_index_buffer_set(buffer, offset, index_format) {
+                                continue;
+                            }
+                            render_pass.set_index_buffer(buffer, offset, index_format);
+                            draw_state.set_index_buffer(buffer, offset, index_format);
                         }
-                        render_pass.set_index_buffer(buffer, offset, index_format);
-                        draw_state.set_index_buffer(buffer, offset, index_format);
-                    }
-                    RenderCommand::SetBindGroup {
-                        index,
-                        bind_group,
-                        dynamic_uniform_indices,
-                    } => {
-                        if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(index, bind_group) {
-                            continue;
-                        }
-                        let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
-                        let layout = pipeline.get_layout().unwrap();
-                        let bind_group_descriptor = layout.get_bind_group(index).unwrap();
-                        render_pass.set_bind_group(
+                        RenderCommand::SetBindGroup {
                             index,
-                            bind_group_descriptor.id,
                             bind_group,
-                            dynamic_uniform_indices.as_deref()
-                        );
-                        draw_state.set_bind_group(index, bind_group);
-                    },
-                    RenderCommand::SetPushConstants { .. } => {
-                        todo!()
-                    }
-                    RenderCommand::SetPushConstants {
-                        stages,
-                        offset,
-                        data,
-                    } => {
-                        render_pass.set_push_constants(stages, offset, &*data);
-                        // draw_state.set_push_constants(stages, offset, &*data);
-                    }
+                            dynamic_uniform_indices,
+                            } => {
+                                if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(index, bind_group) {
+                                    continue;
+                                }
+                                let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
+                                let layout = pipeline.get_layout().unwrap();
+                                let bind_group_descriptor = layout.get_bind_group(index).unwrap();
+                                render_pass.set_bind_group(
+                                    index,
+                                    bind_group_descriptor.id,
+                                    bind_group,
+                                    dynamic_uniform_indices.as_deref()
+                                );
+                                draw_state.set_bind_group(index, bind_group);
+                            },
+                        RenderCommand::SetPushConstants {
+                            stages,
+                            offset,
+                            data,
+                        } => {
+                            render_pass.set_push_constants(stages, offset, &*data);
+                            // draw_state.set_push_constants(stages, offset, &*data);
+                        }
+                    };
                 }
-            }
-        });
+            });
+        }
     }
 }
 

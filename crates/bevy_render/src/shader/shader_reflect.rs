@@ -219,11 +219,11 @@ fn reflect_push_constants(
         .map(|(_, variable)| variable)
         .filter(|variable| matches!(variable.class, StorageClass::PushConstant))
         .scan(0u32, |offset, variable| {
-            match module.types.try_get(variable.ty).unwrap().inner {
+            match &module.types.try_get(variable.ty).as_ref().unwrap().inner {
                 naga::TypeInner::Scalar { width, .. }
                 | naga::TypeInner::Matrix { width, .. }
                 | naga::TypeInner::Vector { width, .. } => {
-                    let width = width as u32;
+                    let width = *width as u32;
                     let range = *offset..width;
                     *offset += width;
                     Some(PushConstantRange {
@@ -231,7 +231,19 @@ fn reflect_push_constants(
                         range,
                     })
                 }
-                _ => unimplemented!(),
+                naga::TypeInner::Struct { span, .. } => {
+                    let span = *span;
+                    let range = *offset..span;
+                    *offset += span;
+                    Some(PushConstantRange {
+                        stages: shader_stage,
+                        range,
+                    })
+                }
+                any => {
+                    dbg!(&any);
+                    unimplemented!()
+                }
             }
         })
         .collect()
