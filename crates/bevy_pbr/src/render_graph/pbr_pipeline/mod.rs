@@ -3,7 +3,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
+        CullMode, DepthBiasState, DepthStencilState, PipelineDescriptor, PrimitiveState,
+        StencilFaceState, StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
@@ -81,6 +82,14 @@ pub(crate) fn build_shadowmap_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
             clamp_depth: false,
         }),
         color_target_states: vec![],
+        primitive: PrimitiveState {
+            // topology: PrimitiveTopology::TriangleList,
+            // strip_index_format: None,
+            // front_face: FrontFace::Ccw,
+            cull_mode: CullMode::None,
+            // polygon_mode: PolygonMode::Fill,
+            ..Default::default()
+        },
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
