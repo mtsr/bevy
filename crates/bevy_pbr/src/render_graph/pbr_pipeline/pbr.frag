@@ -45,11 +45,12 @@ struct Light {
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
-layout(location = 1) in vec3 v_WorldNormal;
 layout(location = 2) in vec2 v_Uv;
 
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-layout(location = 3) in vec4 v_WorldTangent;
+#ifndef STANDARDMATERIAL_NORMAL_MAP
+layout(location = 1) in vec3 v_WorldNormal;
+#else
+layout(location = 3) in mat3 v_TBN;
 #endif
 
 layout(location = 0) out vec4 o_Target;
@@ -299,24 +300,37 @@ void main() {
 
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
+#    ifndef STANDARDMATERIAL_NORMAL_MAP
+    // renormalize after interpolation
     vec3 N = normalize(v_WorldNormal);
+    // o_Target = vec4(N * 0.5 + vec3(0.5), 1.0);
 
-#    ifdef STANDARDMATERIAL_NORMAL_MAP
-    vec3 T = v_WorldTangent.xyz;
-    vec3 B = cross(T, N) * sign(v_WorldTangent.w);
+#    else
+    // renormalize after interpolation
+    vec3 T = normalize(v_TBN[0]);
+    // o_Target = vec4(T * 0.5 + vec3(0.5), 1.0);
+    vec3 B = normalize(v_TBN[1]);
+    // o_Target = vec4(B * 0.5 + vec3(0.5), 1.0);
+    vec3 N = normalize(v_TBN[2]);
+    // o_Target = vec4(N * 0.5 + vec3(0.5), 1.0);
 #    endif
 
 #    ifdef STANDARDMATERIAL_DOUBLE_SIDED
-    N = gl_FrontFacing ? N : -N;
 #        ifdef STANDARDMATERIAL_NORMAL_MAP
     T = gl_FrontFacing ? T : -T;
     B = gl_FrontFacing ? B : -B;
 #        endif
+    N = gl_FrontFacing ? N : -N;
 #    endif
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
-    mat3 TBN = mat3(T, B, N);
-    N = normalize(TBN * texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
+    vec3 normal_map_sample = texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - vec3(1.0);
+    o_Target = vec4(normalize(normal_map_sample * 0.5 + vec3(0.5)), 1.0);
+    output_color.rgb = normalize(normal_map_sample * 0.5 + vec3(0.5));
+
+    // TODO normal texture scale?
+    N = mat3(T, B, N) * normalize(normal_map_sample);
+    // o_Target = vec4(N * 0.5 + vec3(0.5), 1.0);
 #    endif
 
 #    if defined(STANDARDMATERIAL_OCCLUSION_SHARES_METALLIC_ROUGHNESS_TEXTURE) && defined(STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE)
@@ -380,15 +394,15 @@ void main() {
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
     vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
-    output_color.rgb = light_accum;
-    output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
-    output_color.rgb += emissive.rgb * output_color.a;
+    // output_color.rgb = light_accum;
+    // output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
+    // output_color.rgb += emissive.rgb * output_color.a;
 
-    // tone_mapping
-    output_color.rgb = reinhard_luminance(output_color.rgb);
+    // // tone_mapping
+    // output_color.rgb = reinhard_luminance(output_color.rgb);
     // Gamma correction.
     // Not needed with sRGB buffer
-    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+    output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
     o_Target = output_color;
