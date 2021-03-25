@@ -37,7 +37,7 @@ pub struct StandardMaterial {
     pub occlusion_shares_metallic_roughness_texture: bool,
     #[shader_def]
     pub occlusion_texture: Option<Handle<Texture>>,
-    // Use a color for user friendliness even though we technically don't use .a
+    // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Color,
     #[shader_def]
