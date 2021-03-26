@@ -636,9 +636,16 @@ impl WgpuFrom<SamplerBorderColor> for wgpu::SamplerBorderColor {
 
 impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
     fn from(window: &Window) -> Self {
+        let format = if cfg!(target_os = "android") {
+            // Bgra8UnormSrgb texture missing on some Android devices
+            TextureFormat::Rgba8Unorm
+        } else {
+            TextureFormat::Bgra8Unorm
+        };
+
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: TextureFormat::default().wgpu_into(),
+            format: format.wgpu_into(),
             width: window.physical_width(),
             height: window.physical_height(),
             present_mode: if window.vsync() {
