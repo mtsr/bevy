@@ -300,10 +300,13 @@ void main() {
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     vec3 N = normalize(v_WorldNormal);
+    // output_color.rgb = N * 0.5 + vec3(0.5);
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
     vec3 T = normalize(v_WorldTangent.xyz);
+    // output_color.rgb = T * 0.5 + vec3(0.5);
     vec3 B = cross(N, T) * v_WorldTangent.w;
+    // output_color.rgb = B * 0.5 + vec3(0.5);
 #    endif
 
 #    ifdef STANDARDMATERIAL_DOUBLE_SIDED
@@ -316,7 +319,9 @@ void main() {
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
     mat3 TBN = mat3(T, B, N);
-    N = TBN * normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
+    N = TBN * normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - vec3(1.0));
+    // output_color.rgb = normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
+    // output_color.rgb = N * 0.5 + vec3(0.5);
 #    endif
 
 #    ifdef STANDARDMATERIAL_OCCLUSION_TEXTURE
