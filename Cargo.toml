@@ -124,6 +124,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "gltf_test_models"
+path = "examples/3d/gltf_test_models.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 

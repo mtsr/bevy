@@ -90,6 +90,7 @@ Example | File | Description
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/[pbr].rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `pbr_textures` | [`3d/pbr_textures.rs`](./3d/[pbr].rs) | Demonstrates setting PBR properties as a texture, allowing you to vary the properties across your model
+`gltf_test_models` | [`3d/gltf_test_models`](./3d/gltf_test_models) | Adds an example with GLTF test models (currently NormalTangentMirrorTest)
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
