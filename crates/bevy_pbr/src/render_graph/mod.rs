@@ -10,6 +10,7 @@ pub use shadow_pass_node::*;
 /// the names of pbr graph nodes
 pub mod node {
     pub const TRANSFORM: &str = "transform";
+    pub const SHADOWS_TRANSFORM: &str = "shadows_transform";
     pub const STANDARD_MATERIAL: &str = "standard_material";
     pub const LIGHTS: &str = "lights";
     pub const SHADOW_TEXTURE: &str = "shadow_texture";
@@ -98,7 +99,13 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
         graph.add_node(node::SHADOWS, shadow_pass_node);
 
         graph.add_node_edge(node::LIGHTS, node::SHADOWS).unwrap();
-        graph.add_node_edge(node::TRANSFORM, node::SHADOWS).unwrap();
+        graph.add_system_node(
+            node::SHADOWS_TRANSFORM,
+            RenderResourcesNode::<GlobalTransform, ShadowPass>::new(true),
+        );
+        graph
+            .add_node_edge(node::SHADOWS_TRANSFORM, node::SHADOWS)
+            .unwrap();
         graph
             .add_node_edge(base::node::CAMERA_3D, node::SHADOWS)
             .unwrap();

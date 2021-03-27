@@ -355,16 +355,10 @@ void main() {
         vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
         float distance_square = dot(light_to_frag, light_to_frag);
 
-        o_Target = vec4(1.0, 0.0, 0.0, 1.0);
-
 #    ifdef STANDARDMATERIAL_SHADOW_MAP
-        o_Target = vec4(0.0, 1.0, 0.0, 1.0);
-
         float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
 
-        float near = light.proj[3][3] + light.proj[2][3];
-        float far = light.proj[3][3] - light.proj[2][3];
-        shadow_depth = near / (far - shadow_depth * (far - near)) * far;
+        shadow_depth = light.near / (light.far - shadow_depth * (light.far - light.near)) * light.far;
         shadow_depth = shadow_depth * 2.0 - 1.0;
 
         float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;

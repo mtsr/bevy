@@ -4,7 +4,7 @@ use bevy_ecs::{
     query::{QueryState, ReadOnlyFetch, WorldQuery},
     world::{Mut, World},
 };
-use bevy_math::Vec3;
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
@@ -19,11 +19,14 @@ use bevy_render::{
         RenderResourceType,
     },
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::debug, HashMap};
-use std::{borrow::Cow, fmt, marker::PhantomData};
+use std::{borrow::Cow, f32::consts::PI, fmt, marker::PhantomData};
 
-use crate::PointLight;
+use crate::{
+    render_graph::{SHADOW_HEIGHT, SHADOW_WIDTH},
+    PointLight,
+};
 
 pub static SHADOW_TEXTURE: &'static str = "shadow_texture";
 
@@ -134,7 +137,18 @@ where
 
                 for (light_index, (pointlight, global_transform)) in pointlights.iter().enumerate()
                 {
+                    let proj = Mat4::perspective_rh(
+                        PI / 2.0,
+                        SHADOW_WIDTH as f32 / SHADOW_HEIGHT as f32,
+                        pointlight.range.start,
+                        pointlight.range.end,
+                    );
+
                     for (face_index, (face, up)) in faces.iter().zip(up.iter()).enumerate() {
+                        let view = Transform::from_translation(global_transform.translation)
+                            .looking_at(*face, *up)
+                            .compute_matrix();
+
                         let visible_entities = if let Some(entity) = active_camera.entity {
                             world.get::<VisibleEntities>(entity).unwrap()
                         } else {
@@ -160,11 +174,42 @@ where
                                 }
                             }
                             for render_command in draw.render_commands.iter() {
+                                // dbg!(&render_command);
                                 commands.push(render_command.clone());
                                 if let RenderCommand::SetPipeline { pipeline } = render_command {
+                                    let bind_groups = pipeline_camera_commands
+                                        .entry(pipeline.clone_weak())
+                                        .or_insert_with(|| {
+                                            let descriptor = pipelines.get(pipeline).unwrap();
+                                            let layout = descriptor.get_layout().unwrap();
+                                            let mut commands = Vec::new();
+                                            for bind_group_descriptor in layout.bind_groups.iter() {
+                                                if let Some(bind_group) =
+                                                    active_camera.bindings.update_bind_group(
+                                                        bind_group_descriptor,
+                                                        render_resource_context,
+                                                    )
+                                                {
+                                                    commands.push(RenderCommand::SetBindGroup {
+                                                        index: bind_group_descriptor.index,
+                                                        bind_group: bind_group.id,
+                                                        dynamic_uniform_indices: bind_group
+                                                            .dynamic_uniform_indices
+                                                            .clone(),
+                                                    })
+                                                }
+                                            }
+                                            commands
+                                        });
+
+                                    commands.extend(bind_groups.iter().cloned());
+
                                     let mut data = vec![];
-                                    data.extend_from_slice(light_index.as_bytes());
-                                    data.extend_from_slice(face_index.as_bytes());
+                                    data.extend_from_slice(
+                                        (proj * view.inverse()).to_cols_array().as_bytes(),
+                                    );
+                                    data.extend_from_slice((light_index as u32).as_bytes());
+                                    data.extend_from_slice((face_index as u32).as_bytes());
 
                                     commands.push(RenderCommand::SetPushConstants {
                                         stages: BindingShaderStage::VERTEX
@@ -228,6 +273,7 @@ where
                                 instances.clone(),
                             );
                         } else {
+                            panic!();
                             debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                         }
                     }
@@ -235,6 +281,7 @@ where
                         if draw_state.can_draw() {
                             render_pass.draw(vertices.clone(), instances.clone());
                         } else {
+                            panic!();
                             debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                         }
                     }
