@@ -84,13 +84,21 @@ impl Default for Visible {
 pub struct OutsideFrustum;
 
 /// A component that indicates how to draw an entity.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Clone, Reflect)]
 #[reflect(Component)]
 pub struct Draw<P: Send + Sync + 'static> {
     #[reflect(ignore)]
     pub render_commands: Vec<RenderCommand>,
     #[reflect(ignore)]
     pub marker: PhantomData<P>,
+}
+
+impl<P: Send + Sync + 'static> std::fmt::Debug for Draw<P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(&format!("Draw<{}>", std::any::type_name::<P>()))
+            .field("render_commands", &self.render_commands)
+            .finish()
+    }
 }
 
 impl<P: Send + Sync + 'static> Default for Draw<P> {
@@ -222,8 +230,6 @@ impl<'a> DrawContext<'a> {
                 specialization,
             )
         };
-
-        dbg!(&specialization);
 
         draw.set_pipeline(&specialized_pipeline);
         self.current_pipeline = Some(specialized_pipeline.clone_weak());

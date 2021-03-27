@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use bevy_core::Byteable;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::Reflect;
@@ -10,7 +12,7 @@ use bevy_transform::components::GlobalTransform;
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
-    pub range: f32,
+    pub range: Range<f32>,
     pub radius: f32,
 }
 
@@ -19,7 +21,7 @@ impl Default for PointLight {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             intensity: 200.0,
-            range: 20.0,
+            range: 0.1..20.0,
             radius: 0.0,
         }
     }
@@ -47,7 +49,12 @@ impl PointLightUniform {
         PointLightUniform {
             pos: [x, y, z, 1.0],
             color,
-            light_params: [1.0 / (light.range * light.range), light.radius, 0.0, 0.0],
+            light_params: [
+                1.0 / (light.range.end * light.range.end),
+                light.radius,
+                light.range.start,
+                light.range.end,
+            ],
         }
     }
 }
