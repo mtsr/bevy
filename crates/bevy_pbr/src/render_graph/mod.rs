@@ -22,6 +22,7 @@ use bevy_asset::Assets;
 use bevy_render::{pipeline::PipelineDescriptor, render_graph::{AssetRenderResourcesNode, RenderGraph, RenderResourcesNode, base::{self, MainPass}}, shader::Shader};
 use bevy_transform::prelude::GlobalTransform;
 
+pub const MAX_POINT_LIGHTS: usize = 10;
 pub(crate) fn add_pbr_graph(world: &mut World) {
     {
         let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
@@ -33,7 +34,8 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             node::STANDARD_MATERIAL,
             AssetRenderResourcesNode::<StandardMaterial, MainPass>::new(true),
         );
-        graph.add_system_node(node::LIGHTS, LightsNode::new(10));
+
+        graph.add_system_node(node::LIGHTS, LightsNode::new(MAX_POINT_LIGHTS));
 
         // TODO: replace these with "autowire" groups
         graph
