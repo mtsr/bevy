@@ -16,9 +16,13 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_ecs::system::IntoSystem;
-use bevy_render::{prelude::Color, render_graph::base::MainPass, shader};
+use bevy_render::{
+    draw, mesh, pipeline,
+    prelude::{Color, Draw, RenderPipelines},
+    shader, RenderStage,
+};
 use material::StandardMaterial;
-use render_graph::add_pbr_graph;
+use render_graph::{add_pbr_graph, ShadowPass};
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]
@@ -28,9 +32,29 @@ impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
             .register_type::<PointLight>()
+            .register_type::<ShadowCaster>()
+            .register_type::<ShadowPass>()
+            .register_type::<Draw<ShadowPass>>()
+            .register_type::<RenderPipelines<ShadowPass>>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                shader::asset_shader_defs_system::<StandardMaterial, MainPass>.system(),
+                shader::asset_shader_defs_system::<StandardMaterial, ShadowPass>.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                draw::clear_draw_system::<ShadowPass>.system(),
+            )
+            .add_system_to_stage(
+                RenderStage::RenderResource,
+                mesh::mesh_resource_provider_system::<ShadowPass>.system(),
+            )
+            .add_system_to_stage(
+                RenderStage::Draw,
+                pipeline::draw_render_pipelines_system::<ShadowPass>.system(),
+            )
+            .add_system_to_stage(
+                RenderStage::PostRender,
+                shader::clear_shader_defs_system::<ShadowPass>.system(),
             )
             .init_resource::<AmbientLight>();
         add_pbr_graph(app.world_mut());
