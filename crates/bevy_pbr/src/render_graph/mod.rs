@@ -112,6 +112,10 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             )
             .unwrap();
 
+        graph
+            .add_node_edge(node::SHADOWS, base::node::MAIN_PASS)
+            .unwrap();
+
         // TODO: replace these with "autowire" groups
         graph
             .add_node_edge(node::STANDARD_MATERIAL, base::node::MAIN_PASS)

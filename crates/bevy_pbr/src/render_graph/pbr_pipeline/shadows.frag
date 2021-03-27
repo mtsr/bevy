@@ -27,8 +27,13 @@ layout(set = 2, binding = 0) uniform Transform {
     mat4 Model;
 };
 
+layout(push_constant) uniform CurrentLight {
+    int light_index;
+    int face_index;
+};
+
 void main() {
-    PointLight light = PointLights[0];
+    PointLight light = PointLights[light_index];
 
     // get distance between fragment and light source
     float lightDistance = length(FragPos.xyz - light.pos);

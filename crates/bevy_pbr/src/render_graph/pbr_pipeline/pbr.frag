@@ -121,9 +121,9 @@ layout(set = 3,
 #    endif
 
 #    if defined(STANDARDMATERIAL_SHADOW_MAP)
-layout(set = 3, binding = 15) uniform textureCubeArray StandardMaterial_shadow_map;
+layout(set = 3, binding = 6) uniform textureCubeArray StandardMaterial_shadow_map;
 layout(set = 3,
-       binding = 16) uniform sampler StandardMaterial_shadow_map_sampler;
+       binding = 7) uniform sampler StandardMaterial_shadow_map_sampler;
 #    endif
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
@@ -356,7 +356,11 @@ void main() {
         vec3 L = normalize(light_to_frag);
         float distance_square = dot(light_to_frag, light_to_frag);
 
+        o_Target = vec4(1.0, 0.0, 0.0, 1.0);
+
 #    ifdef STANDARDMATERIAL_SHADOW_MAP
+        o_Target = vec4(0.0, 1.0, 0.0, 1.0);
+
         float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
 
         float near = light.proj[3][3] + light.proj[2][3];
@@ -411,5 +415,5 @@ void main() {
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
-    o_Target = output_color;
+    // o_Target = output_color;
 }
