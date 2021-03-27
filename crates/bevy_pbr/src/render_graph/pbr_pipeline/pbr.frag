@@ -35,6 +35,7 @@
 #version 450
 
 const int MAX_LIGHTS = 10;
+const float BIAS = 0.5;
 
 struct PointLight {
     mat4 proj;
@@ -117,6 +118,12 @@ layout(set = 3, binding = 12) uniform StandardMaterial_emissive {
 layout(set = 3, binding = 13) uniform texture2D StandardMaterial_emissive_texture;
 layout(set = 3,
        binding = 14) uniform sampler StandardMaterial_emissive_texture_sampler;
+#    endif
+
+#    if defined(STANDARDMATERIAL_SHADOW_MAP)
+layout(set = 3, binding = 15) uniform textureCubeArray StandardMaterial_shadow_map;
+layout(set = 3,
+       binding = 16) uniform sampler StandardMaterial_shadow_map_sampler;
 #    endif
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
@@ -349,6 +356,21 @@ void main() {
         vec3 L = normalize(light_to_frag);
         float distance_square = dot(light_to_frag, light_to_frag);
 
+#    ifdef STANDARDMATERIAL_SHADOW_MAP
+        float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
+
+        float near = light.proj[3][3] + light.proj[2][3];
+        float far = light.proj[3][3] - light.proj[2][3];
+        shadow_depth = near / (far - shadow_depth * (far - near)) * far;
+        shadow_depth = shadow_depth * 2.0 - 1.0;
+
+        float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;
+        // o_Target = vec4(vec3(shadow / far), 1.0);
+        // o_Target = vec4(light_to_frag, 1.0);
+#    else
+        float shadow = 1.0;
+#    endif
+
         float rangeAttenuation =
             getDistanceAttenuation(distance_square, light.inverseRadiusSquared);
 
@@ -372,7 +394,7 @@ void main() {
         // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
         // light.color.rgb is premultiplied with light.intensity on the CPU
         light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL) * shadow;
     }
 
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);

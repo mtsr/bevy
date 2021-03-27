@@ -1,6 +1,11 @@
-use crate::{light::PointLight, material::StandardMaterial, render_graph::PBR_PIPELINE_HANDLE};
+use crate::{
+    light::PointLight,
+    material::StandardMaterial,
+    render_graph::{ShadowPass, PBR_PIPELINE_HANDLE, SHADOW_PIPELINE_HANDLE},
+};
 use bevy_asset::Handle;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::{bundle::Bundle, reflect::ReflectComponent};
+use bevy_reflect::Reflect;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
@@ -17,10 +22,14 @@ pub struct PbrBundle {
     pub material: Handle<StandardMaterial>,
     pub main_pass: MainPass,
     pub draw: Draw<MainPass>,
-    pub visible: Visible,
     pub render_pipelines: RenderPipelines<MainPass>,
+    pub shadow_pass: ShadowPass,
+    pub shadow_draw: Draw<ShadowPass>,
+    pub shadow_render_pipelines: RenderPipelines<ShadowPass>,
+    pub visible: Visible,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub shadow_caster: ShadowCaster,
 }
 
 impl Default for PbrBundle {
@@ -33,9 +42,15 @@ impl Default for PbrBundle {
             visible: Default::default(),
             material: Default::default(),
             main_pass: Default::default(),
+            shadow_pass: Default::default(),
+            shadow_draw: Default::default(),
+            shadow_render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                SHADOW_PIPELINE_HANDLE.typed(),
+            )]),
             draw: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            shadow_caster: Default::default(),
         }
     }
 }
@@ -47,3 +62,8 @@ pub struct PointLightBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
+
+/// A marker type for shadow casters
+#[derive(Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct ShadowCaster;
