@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy::{
     core::AsBytes,
     prelude::*,
@@ -8,6 +10,7 @@ use bevy::{
         pipeline::{
             BindingShaderStage, PipelineDescriptor, PipelineSpecialization, RenderPipeline,
         },
+        render_graph::base::MainPass,
         shader::{ShaderStage, ShaderStages},
         RenderStage,
     },
@@ -33,9 +36,9 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .register_type::<CustomDrawable>()
+        .register_type::<CustomDrawable<MainPass>>()
         .add_startup_system(setup.system())
-        .add_system_to_stage(RenderStage::Draw, draw_custom_drawable.system())
+        .add_system_to_stage(RenderStage::Draw, draw_custom_drawable::<MainPass>.system())
         .run();
 }
 
@@ -64,14 +67,25 @@ void main() {
 }
 "#;
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Debug, Reflect)]
 #[reflect(Component)]
-struct CustomDrawable;
+struct CustomDrawable<P: Send + Sync + 'static> {
+    #[reflect(ignore)]
+    marker: PhantomData<P>,
+}
 
-impl Drawable for CustomDrawable {
+impl<P: Send + Sync + 'static> Default for CustomDrawable<P> {
+    fn default() -> Self {
+        Self {
+            marker: PhantomData::default(),
+        }
+    }
+}
+
+impl<P: Send + Sync + 'static> Drawable<P> for CustomDrawable<P> {
     fn draw(
         &mut self,
-        draw: &mut Draw,
+        draw: &mut Draw<P>,
         context: &mut bevy::render::draw::DrawContext,
     ) -> Result<(), bevy::render::draw::DrawError> {
         context.set_push_constants(
@@ -83,15 +97,15 @@ impl Drawable for CustomDrawable {
     }
 }
 
-fn draw_custom_drawable(
+fn draw_custom_drawable<P: Send + Sync + 'static>(
     mut draw_context: bevy::render::draw::DrawContext,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(
-        &mut Draw,
-        &mut RenderPipelines,
+        &mut Draw<P>,
+        &mut RenderPipelines<P>,
         &Handle<Mesh>,
-        &mut CustomDrawable,
+        &mut CustomDrawable<P>,
         &Visible,
     )>,
 ) {
@@ -177,7 +191,7 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 0.0, 0.0),
             ..Default::default()
         })
-        .with(CustomDrawable)
+        .with(CustomDrawable::<MainPass>::default())
         // camera
         .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::default(), Vec3::Y),

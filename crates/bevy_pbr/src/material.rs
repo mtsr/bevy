@@ -2,6 +2,8 @@ use bevy_asset::{self, Handle};
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
+use crate::render_graph::SHADOW_TEXTURE_HANDLE;
+
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
@@ -39,6 +41,8 @@ pub struct StandardMaterial {
     pub emissive: Color,
     #[shader_def]
     pub emissive_texture: Option<Handle<Texture>>,
+    #[shader_def]
+    pub shadow_map: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
@@ -67,6 +71,7 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
+            shadow_map: Some(SHADOW_TEXTURE_HANDLE.typed()),
             unlit: false,
         }
     }

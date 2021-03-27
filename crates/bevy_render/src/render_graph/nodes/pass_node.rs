@@ -322,6 +322,7 @@ where
                         data,
                     } => {
                         render_pass.set_push_constants(stages, offset, &*data);
+                        // draw_state.set_push_constants(stages, offset, &*data);
                     }
                 }
             }
