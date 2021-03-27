@@ -138,7 +138,7 @@ where
 
                 for (light_index, (pointlight, global_transform)) in pointlights.iter().enumerate()
                 {
-                    let proj = Mat4::perspective_rh(
+                    let proj = Mat4::perspective_lh(
                         PI / 2.0,
                         SHADOW_WIDTH as f32 / SHADOW_HEIGHT as f32,
                         pointlight.range.start,
@@ -146,8 +146,8 @@ where
                     );
 
                     for (face_index, (face, up)) in faces.iter().zip(up.iter()).enumerate() {
-                        let view = Transform::from_translation(global_transform.translation)
-                            .looking_at(*face, *up)
+                        let mut view = Transform::from_translation(global_transform.translation)
+                            .looking_at(global_transform.translation - *face, *up)
                             .compute_matrix();
 
                         let visible_entities = if let Some(entity) = active_camera.entity {

@@ -9,7 +9,7 @@ struct PointLight {
     float far;
 };
 
-layout(location = 0) in vec4 FragPos;
+layout(location = 0) in vec3 v_WorldPosition;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -35,10 +35,10 @@ void main() {
     PointLight light = PointLights[light_index];
 
     // get distance between fragment and light source
-    float lightDistance = length(FragPos.xyz - light.pos);
+    float lightDistance = length(v_WorldPosition - light.pos);
 
-    // map to [0;1] range by dividing by far_plane
-    lightDistance = lightDistance / light.far;
+    // map to [0;1] range
+    lightDistance = (lightDistance - light.near) / (light.far - light.near);
 
     // write this as modified depth
     gl_FragDepth = lightDistance;
