@@ -38,11 +38,10 @@ const int MAX_LIGHTS = 10;
 const float BIAS = 0.5;
 
 struct PointLight {
-    mat4 proj;
     vec3 pos;
-    float inverseRadiusSquared;
+    float near;
     vec3 color;
-    float unused; // unused 4th element of vec4;
+    float far;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -356,16 +355,10 @@ void main() {
         vec3 L = normalize(light_to_frag);
         float distance_square = dot(light_to_frag, light_to_frag);
 
-        o_Target = vec4(1.0, 0.0, 0.0, 1.0);
-
 #    ifdef STANDARDMATERIAL_SHADOW_MAP
-        o_Target = vec4(0.0, 1.0, 0.0, 1.0);
-
         float shadow_depth = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
 
-        float near = light.proj[3][3] + light.proj[2][3];
-        float far = light.proj[3][3] - light.proj[2][3];
-        shadow_depth = near / (far - shadow_depth * (far - near)) * far;
+        shadow_depth = light.near / (light.far - shadow_depth * (light.far - light.near)) * light.far;
         shadow_depth = shadow_depth * 2.0 - 1.0;
 
         float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;
@@ -376,7 +369,7 @@ void main() {
 #    endif
 
         float rangeAttenuation =
-            getDistanceAttenuation(distance_square, light.inverseRadiusSquared);
+            getDistanceAttenuation(distance_square, 1.0 / (light.far * light.far));
 
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
