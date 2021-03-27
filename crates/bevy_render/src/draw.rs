@@ -223,6 +223,8 @@ impl<'a> DrawContext<'a> {
             )
         };
 
+        dbg!(&specialization);
+
         draw.set_pipeline(&specialized_pipeline);
         self.current_pipeline = Some(specialized_pipeline.clone_weak());
         Ok(())
@@ -374,9 +376,9 @@ impl<'a> DrawContext<'a> {
         Ok(())
     }
 
-    pub fn set_push_constants(
+    pub fn set_push_constants<P: Send + Sync + 'static>(
         &self,
-        draw: &mut Draw,
+        draw: &mut Draw<P>,
         stages: BindingShaderStage,
         offset: u32,
         data: Vec<u8>,

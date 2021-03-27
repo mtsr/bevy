@@ -27,8 +27,13 @@ layout(set = 1, binding = 0) uniform Lights {
     PointLight PointLights[MAX_LIGHTS];
 };
 
+layout(push_constant) uniform CurrentLight {
+    int light_index;
+    int face_index;
+};
+
 void main() {
-    PointLight light = PointLights[0];
+    PointLight light = PointLights[light_index];
 
     vec4 world_position = light.proj * Model * vec4(Vertex_Position, 1.0);
     gl_Position = world_position;

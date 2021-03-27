@@ -1,4 +1,5 @@
 use bevy_asset::{Assets, Handle};
+use bevy_core::AsBytes;
 use bevy_ecs::{
     query::{QueryState, ReadOnlyFetch, WorldQuery},
     world::{Mut, World},
@@ -10,7 +11,7 @@ use bevy_render::{
     pass::{
         LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachment, TextureAttachment,
     },
-    pipeline::{IndexFormat, PipelineDescriptor},
+    pipeline::{BindingShaderStage, IndexFormat, PipelineDescriptor},
     prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
@@ -131,13 +132,15 @@ where
                     continue;
                 };
 
-                for (pointlight, global_transform) in pointlights.iter() {
-                    for (face, up) in faces.iter().zip(up.iter()) {
+                for (light_index, (pointlight, global_transform)) in pointlights.iter().enumerate()
+                {
+                    for (face_index, (face, up)) in faces.iter().zip(up.iter()).enumerate() {
                         let visible_entities = if let Some(entity) = active_camera.entity {
                             world.get::<VisibleEntities>(entity).unwrap()
                         } else {
                             continue;
                         };
+
                         for visible_entity in visible_entities.iter() {
                             if query_state.get(world, visible_entity.entity).is_err() {
                                 // visible entity does not match the Pass query
@@ -158,34 +161,17 @@ where
                             }
                             for render_command in draw.render_commands.iter() {
                                 commands.push(render_command.clone());
-                                // whenever a new pipeline is set, ensure the relevant camera bind groups are set
                                 if let RenderCommand::SetPipeline { pipeline } = render_command {
-                                    let bind_groups = pipeline_camera_commands
-                                        .entry(pipeline.clone_weak())
-                                        .or_insert_with(|| {
-                                            let descriptor = pipelines.get(pipeline).unwrap();
-                                            let layout = descriptor.get_layout().unwrap();
-                                            let mut commands = Vec::new();
-                                            for bind_group_descriptor in layout.bind_groups.iter() {
-                                                if let Some(bind_group) =
-                                                    active_camera.bindings.update_bind_group(
-                                                        bind_group_descriptor,
-                                                        render_resource_context,
-                                                    )
-                                                {
-                                                    commands.push(RenderCommand::SetBindGroup {
-                                                        index: bind_group_descriptor.index,
-                                                        bind_group: bind_group.id,
-                                                        dynamic_uniform_indices: bind_group
-                                                            .dynamic_uniform_indices
-                                                            .clone(),
-                                                    })
-                                                }
-                                            }
-                                            commands
-                                        });
+                                    let mut data = vec![];
+                                    data.extend_from_slice(light_index.as_bytes());
+                                    data.extend_from_slice(face_index.as_bytes());
 
-                                    commands.extend(bind_groups.iter().cloned());
+                                    commands.push(RenderCommand::SetPushConstants {
+                                        stages: BindingShaderStage::VERTEX
+                                            | BindingShaderStage::FRAGMENT,
+                                        offset: 0,
+                                        data,
+                                    });
                                 }
                             }
                         }
@@ -291,6 +277,14 @@ where
                     },
                     RenderCommand::SetPushConstants { .. } => {
                         todo!()
+                    }
+                    RenderCommand::SetPushConstants {
+                        stages,
+                        offset,
+                        data,
+                    } => {
+                        render_pass.set_push_constants(stages, offset, &*data);
+                        // draw_state.set_push_constants(stages, offset, &*data);
                     }
                 }
             }
