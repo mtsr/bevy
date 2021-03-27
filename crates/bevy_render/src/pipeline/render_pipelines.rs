@@ -122,6 +122,8 @@ pub fn draw_render_pipelines_system<P: Send + Sync + 'static>(
 
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
+            // dbg!(&pipeline);
+            // dbg!(&render_pipelines.bindings);
             pipeline.specialization.sample_count = msaa.samples;
             if pipeline.dynamic_bindings_generation
                 != render_pipelines.bindings.dynamic_bindings_generation()

@@ -59,3 +59,39 @@ pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescri
         })
     }
 }
+
+pub const SHADOW_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 5483456202022914541);
+
+pub(crate) fn build_shadowmap_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
+    PipelineDescriptor {
+        depth_stencil: Some(DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+            clamp_depth: false,
+        }),
+        color_target_states: vec![],
+        ..PipelineDescriptor::new(ShaderStages {
+            vertex: shaders.add(Shader::from_glsl(
+                ShaderStage::Vertex,
+                include_str!("shadows.vert"),
+            )),
+            fragment: Some(shaders.add(Shader::from_glsl(
+                ShaderStage::Fragment,
+                include_str!("shadows.frag"),
+            ))),
+        })
+    }
+}
