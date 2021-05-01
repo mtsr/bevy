@@ -22,9 +22,11 @@ members = ["crates/*", "examples/ios", "tools/ci"]
 [features]
 default = [
   "bevy_audio",
+  "bevy_asset",
   "bevy_dynamic_plugin",
   "bevy_gilrs",
   "bevy_gltf",
+  "bevy_scene",
   "bevy_wgpu",
   "bevy_winit",
   "render",
@@ -41,10 +43,12 @@ dynamic = ["bevy_dylib"]
 render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
 
 # Optional bevy crates
-bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_audio = ["bevy_internal/bevy_audio", "bevy_asset"]
+bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
-bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset"]
+bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
@@ -53,18 +57,18 @@ trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
-hdr = ["bevy_internal/hdr"]
-png = ["bevy_internal/png"]
-dds = ["bevy_internal/dds"]
-tga = ["bevy_internal/tga"]
-jpeg = ["bevy_internal/jpeg"]
-bmp = ["bevy_internal/bmp"]
+hdr = ["bevy_internal/hdr", "bevy_asset"]
+png = ["bevy_internal/png", "bevy_asset"]
+dds = ["bevy_internal/dds", "bevy_asset"]
+tga = ["bevy_internal/tga", "bevy_asset"]
+jpeg = ["bevy_internal/jpeg", "bevy_asset"]
+bmp = ["bevy_internal/bmp", "bevy_asset"]
 
 # Audio format support (MP3 is enabled by default)
-flac = ["bevy_internal/flac"]
-mp3 = ["bevy_internal/mp3"]
-vorbis = ["bevy_internal/vorbis"]
-wav = ["bevy_internal/wav"]
+flac = ["bevy_internal/flac", "bevy_asset"]
+mp3 = ["bevy_internal/mp3", "bevy_asset"]
+vorbis = ["bevy_internal/vorbis", "bevy_asset"]
+wav = ["bevy_internal/wav", "bevy_asset"]
 
 serialize = ["bevy_internal/serialize"]
 

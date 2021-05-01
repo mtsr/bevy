@@ -1,6 +1,7 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
 use bevy_app::ScheduleRunnerPlugin;
+#[cfg(feature = "bevy_asset")]
 use bevy_asset::AssetPlugin;
 #[cfg(feature = "bevy_audio")]
 use bevy_audio::AudioPlugin;
@@ -16,6 +17,7 @@ use bevy_log::LogPlugin;
 use bevy_pbr::PbrPlugin;
 #[cfg(feature = "bevy_render")]
 use bevy_render::RenderPlugin;
+#[cfg(feature = "bevy_scene")]
 use bevy_scene::ScenePlugin;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::SpritePlugin;
@@ -59,8 +61,12 @@ impl PluginGroup for DefaultPlugins {
         group.add(DiagnosticsPlugin::default());
         group.add(InputPlugin::default());
         group.add(WindowPlugin::default());
-        group.add(AssetPlugin::default());
+
+        #[cfg(feature = "bevy_scene")]
         group.add(ScenePlugin::default());
+
+        #[cfg(feature = "bevy_asset")]
+        group.add(AssetPlugin::default());
 
         #[cfg(feature = "bevy_render")]
         group.add(RenderPlugin::default());
