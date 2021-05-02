@@ -358,11 +358,11 @@ void main() {
 #    ifdef STANDARDMATERIAL_SHADOW_MAP
         float shadow_depth_sample = texture(samplerCubeArray(StandardMaterial_shadow_map, StandardMaterial_shadow_map_sampler), vec4(light_to_frag, i * 6)).r;
 
-        float shadow_depth = (shadow_depth_sample * (light.far - light.near) + light.near) * light.far;
+        float shadow_depth = (shadow_depth_sample * (light.lightParams.a - light.lightParams.b) + light.lightParams.b) * light.lightParams.a;
 
         float shadow = sqrt(distance_square) - BIAS > shadow_depth ? 1.0 : 0.0;
         // o_Target = vec4(vec3(shadow_depth_sample), 1.0);
-        // o_Target = vec4(vec3(shadow_depth / light.far), 1.0);
+        // o_Target = vec4(vec3(shadow_depth / light.lightParams.a), 1.0);
         // o_Target = vec4(vec3(shadow), 1.0);
 #    else
         float shadow = 1.0;

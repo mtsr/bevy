@@ -315,7 +315,7 @@ impl WgpuFrom<&TextureViewDescriptor> for wgpu::TextureViewDescriptor<'_> {
                 .map(|dimension| dimension.wgpu_into()),
             aspect: texture_view_descriptor.aspect.wgpu_into(),
             base_mip_level: texture_view_descriptor.base_mip_level,
-            mip_level_count: texture_view_descriptor.level_count,
+            mip_level_count: texture_view_descriptor.mip_level_count,
             base_array_layer: texture_view_descriptor.base_array_layer,
             array_layer_count: texture_view_descriptor.array_layer_count,
         }
