@@ -127,7 +127,7 @@ where
             Vec3::Y * -1.0,
         ];
 
-        world.resource_scope(|mut active_cameras: Mut<ActiveCameras>, world| {
+        world.resource_scope(|world, mut active_cameras: Mut<ActiveCameras>| {
             let mut pipeline_camera_commands = HashMap::default();
             let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
             let render_resource_context = &**world
@@ -220,6 +220,8 @@ where
                                     data.extend_from_slice((light_index as u32).as_bytes());
                                     data.extend_from_slice((face_index as u32).as_bytes());
 
+                                    dbg!(&commands);
+
                                     commands.push(RenderCommand::SetPushConstants {
                                         stages: BindingShaderStage::VERTEX
                                             | BindingShaderStage::FRAGMENT,
@@ -280,9 +282,10 @@ where
                 for render_command in pass.commands.drain(..) {
                     match render_command {
                         RenderCommand::SetPipeline { pipeline } => {
-                            if draw_state.is_pipeline_set(pipeline.clone_weak()) {
-                                continue;
-                            }
+                            //TODO Can't skip set_pipeline in case of set_push_constants?!
+                            // if draw_state.is_pipeline_set(pipeline.clone_weak()) {
+                            //     continue;
+                            // }
                             render_pass.set_pipeline(&pipeline);
                             let descriptor = pipelines.get(&pipeline).unwrap();
                             draw_state.set_pipeline(&pipeline, descriptor);

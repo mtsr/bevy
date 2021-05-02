@@ -71,7 +71,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
         let texture_descriptor = TextureDescriptor {
             size: Extent3d::new(SHADOW_WIDTH, SHADOW_HEIGHT, (MAX_POINT_LIGHTS * 6) as u32),
             mip_level_count: 1,
-            sample_count: samples,
+            sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::Depth32Float,
             usage: TextureUsage::OUTPUT_ATTACHMENT | TextureUsage::SAMPLED,
