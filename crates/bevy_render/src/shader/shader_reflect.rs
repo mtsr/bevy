@@ -3,7 +3,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         PushConstantRange, UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
-    shader::{ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
+    shader::{self, ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
@@ -135,6 +135,7 @@ fn reflect_binding(
     binding: &ReflectDescriptorBinding,
     shader_stage: ReflectShaderStageFlags,
 ) -> BindingDescriptor {
+    dbg!(&binding, &shader_stage);
     let type_description = binding.type_description.as_ref().unwrap();
     let (name, bind_type) = match binding.descriptor_type {
         ReflectDescriptorType::UniformBuffer => (

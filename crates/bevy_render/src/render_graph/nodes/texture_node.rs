@@ -5,10 +5,14 @@ use std::borrow::Cow;
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
-    texture::{SamplerDescriptor, TextureDescriptor, SAMPLER_ASSET_INDEX, TEXTURE_ASSET_INDEX},
+    texture::{
+        SamplerDescriptor, TextureDescriptor, TextureViewDescriptor, SAMPLER_ASSET_INDEX,
+        TEXTURE_ASSET_INDEX,
+    },
 };
 pub struct TextureNode {
     pub texture_descriptor: TextureDescriptor,
+    pub texture_view_descriptor: Option<TextureViewDescriptor>,
     pub sampler_descriptor: Option<SamplerDescriptor>,
     pub handle: Option<HandleUntyped>,
 }
@@ -18,11 +22,13 @@ impl TextureNode {
 
     pub fn new(
         texture_descriptor: TextureDescriptor,
+        texture_view_descriptor: Option<TextureViewDescriptor>,
         sampler_descriptor: Option<SamplerDescriptor>,
         handle: Option<HandleUntyped>,
     ) -> Self {
         Self {
             texture_descriptor,
+            texture_view_descriptor,
             sampler_descriptor,
             handle,
         }
@@ -48,7 +54,12 @@ impl Node for TextureNode {
         if output.get(0).is_none() {
             let render_resource_context = render_context.resources_mut();
             let texture_id = render_resource_context.create_texture(self.texture_descriptor);
-            let texture_view_id = render_resource_context.create_default_texture_view(texture_id);
+            let texture_view_id = match self.texture_view_descriptor {
+                None => render_resource_context.create_default_texture_view(texture_id),
+                Some(texture_view_descriptor) => {
+                    render_resource_context.create_texture_view(texture_id, texture_view_descriptor)
+                }
+            };
             if let Some(handle) = &self.handle {
                 render_resource_context.set_asset_resource_untyped(
                     handle.clone(),

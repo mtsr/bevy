@@ -36,7 +36,8 @@ use bevy_render::{
     shader::Shader,
     texture::{
         AddressMode::ClampToEdge, Extent3d, FilterMode::Nearest, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDescriptor,
+        TextureViewDimension,
     },
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -76,6 +77,10 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             format: TextureFormat::Depth32Float,
             usage: TextureUsage::OUTPUT_ATTACHMENT | TextureUsage::SAMPLED,
         };
+        let texture_view_descriptor = TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::CubeArray),
+            ..Default::default()
+        };
         let sampler_descriptor = SamplerDescriptor {
             address_mode_u: ClampToEdge,
             address_mode_v: ClampToEdge,
@@ -89,6 +94,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             node::SHADOW_TEXTURE,
             TextureNode::new(
                 texture_descriptor,
+                Some(texture_view_descriptor),
                 Some(sampler_descriptor),
                 Some(SHADOW_TEXTURE_HANDLE),
             ),
