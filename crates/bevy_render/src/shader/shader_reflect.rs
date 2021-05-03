@@ -9,7 +9,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         PushConstantRange, UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
-    shader::ShaderLayout,
+    shader::{self, ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension},
 };
 
