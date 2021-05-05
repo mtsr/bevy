@@ -18,6 +18,7 @@ pub struct PipelineSpecialization {
     pub dynamic_bindings: HashSet<String>,
     pub strip_index_format: Option<IndexFormat>,
     pub vertex_buffer_layout: VertexBufferLayout,
+    pub instance_buffer_layout: VertexBufferLayout,
     pub sample_count: u32,
 }
 
@@ -30,6 +31,7 @@ impl Default for PipelineSpecialization {
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
             vertex_buffer_layout: Default::default(),
+            instance_buffer_layout: Default::default(),
         }
     }
 }
@@ -200,13 +202,17 @@ impl PipelineCompiler {
         // create a vertex layout that provides all attributes from either the specialized vertex
         // buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
-        // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
 
         // the vertex buffer descriptor that will be used for this pipeline
         let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
             step_mode: InputStepMode::Vertex,
-            stride: mesh_vertex_buffer_layout.stride,
+            stride: pipeline_specialization.vertex_buffer_layout.stride,
+            ..Default::default()
+        };
+
+        let mut compiled_instance_buffer_descriptor = VertexBufferLayout {
+            step_mode: InputStepMode::Instance,
+            stride: pipeline_specialization.instance_buffer_layout.stride,
             ..Default::default()
         };
 
@@ -216,7 +222,8 @@ impl PipelineCompiler {
                 .get(0)
                 .expect("Reflected layout has no attributes.");
 
-            if let Some(target_vertex_attribute) = mesh_vertex_buffer_layout
+            if let Some(target_vertex_attribute) = pipeline_specialization
+                .vertex_buffer_layout
                 .attributes
                 .iter()
                 .find(|x| x.name == shader_vertex_attribute.name)
@@ -227,6 +234,18 @@ impl PipelineCompiler {
                 compiled_vertex_buffer_descriptor
                     .attributes
                     .push(compiled_vertex_attribute);
+            } else if let Some(target_vertex_attribute) = pipeline_specialization
+                .instance_buffer_layout
+                .attributes
+                .iter()
+                .find(|x| x.name == shader_vertex_attribute.name)
+            {
+                let mut compiled_instance_attribute = target_vertex_attribute.clone();
+                compiled_instance_attribute.shader_location =
+                    shader_vertex_attribute.shader_location;
+                compiled_instance_buffer_descriptor
+                    .attributes
+                    .push(compiled_instance_attribute);
             } else {
                 panic!(
                     "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh.",
@@ -240,6 +259,7 @@ impl PipelineCompiler {
         let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
         if !pipeline_layout.vertex_buffer_descriptors.is_empty() {
             vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+            vertex_buffer_descriptors.push(compiled_instance_buffer_descriptor);
         }
 
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;

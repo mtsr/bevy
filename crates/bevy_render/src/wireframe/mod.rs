@@ -95,6 +95,7 @@ pub fn draw_wireframes_system(
                     .map(|name| name.to_string())
                     .collect::<HashSet<String>>(),
                 vertex_buffer_layout: mesh.get_vertex_buffer_layout(),
+                ..Default::default()
             },
         );
         render_pipeline.dynamic_bindings_generation =
