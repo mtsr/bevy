@@ -31,6 +31,7 @@ use crate::{
 
 pub static SHADOW_TEXTURE: &'static str = "shadow_texture";
 
+#[derive(Debug)]
 struct Pass {
     shadow_texture_layer: u32,
     commands: Vec<RenderCommand>,
@@ -219,7 +220,7 @@ where
                                     data.extend_from_slice((light_index as u32).as_bytes());
                                     data.extend_from_slice((face_index as u32).as_bytes());
 
-                                    dbg!(&commands);
+                                    // dbg!(&commands);
 
                                     commands.push(RenderCommand::SetPushConstants {
                                         stages: BindingShaderStage::VERTEX
@@ -273,6 +274,26 @@ where
                 .as_mut()
                 .unwrap()
                 .attachment = RenderResourceId::Texture(shadow_texture).into();
+
+            if pass.shadow_texture_layer == 0 {
+                self.descriptor
+                    .depth_stencil_attachment
+                    .as_mut()
+                    .unwrap()
+                    .depth_ops
+                    .as_mut()
+                    .unwrap()
+                    .load = LoadOp::Clear(1.0);
+            } else {
+                self.descriptor
+                    .depth_stencil_attachment
+                    .as_mut()
+                    .unwrap()
+                    .depth_ops
+                    .as_mut()
+                    .unwrap()
+                    .load = LoadOp::Load;
+            }
 
             render_context.begin_pass(
             &self.descriptor,

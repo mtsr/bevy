@@ -251,7 +251,7 @@ where
                         }
                         render_pass.set_pipeline(&pipeline);
                         let descriptor = pipelines.get(&pipeline).unwrap();
-                        dbg!(&descriptor);
+                        // dbg!(&descriptor);
                         draw_state.set_pipeline(&pipeline, descriptor);
                     }
                     RenderCommand::DrawIndexed {
