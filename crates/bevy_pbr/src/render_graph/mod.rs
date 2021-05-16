@@ -1,5 +1,6 @@
 mod lights_node;
 mod pbr_pipeline;
+mod shadows_node;
 
 use bevy_ecs::world::World;
 pub use lights_node::*;
@@ -10,6 +11,7 @@ pub mod node {
     pub const TRANSFORM: &str = "transform";
     pub const STANDARD_MATERIAL: &str = "standard_material";
     pub const LIGHTS: &str = "lights";
+    pub const SHADOWS: &str = "shadows";
 }
 
 /// the names of pbr uniforms
@@ -25,6 +27,8 @@ use bevy_render::{
     shader::Shader,
 };
 use bevy_transform::prelude::GlobalTransform;
+
+use self::shadows_node::ShadowsNode;
 
 pub const MAX_POINT_LIGHTS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
@@ -44,6 +48,8 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             node::LIGHTS,
             LightsNode::new(MAX_POINT_LIGHTS, MAX_DIRECTIONAL_LIGHTS),
         );
+
+        graph.add_node(node::SHADOWS, ShadowsNode::new());
 
         // TODO: replace these with "autowire" groups
         graph
