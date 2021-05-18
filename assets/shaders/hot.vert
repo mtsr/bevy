@@ -11,6 +11,14 @@ layout(set = 2, binding = 0) uniform Transform {
     mat4 Model;
 };
 
+layout(set = 2, binding = 1) uniform TerrainMaterial_scale {
+    float scale;
+};
+
+layout(set = 2, binding = 2) uniform TerrainMaterial_offset {
+    float offset;
+};
+
 layout(location = 0) out vec3 v_WorldPosition;
 layout(location = 1) out vec3 v_WorldNormal;
 layout(location = 2) out vec2 v_Uv;
@@ -21,7 +29,7 @@ void main() {
 
     v_WorldNormal = mat3(Model) * Vertex_Normal;
 
-    v_Uv = vec2(0.5, world_position.y / 3);
+    v_Uv = vec2(0.5, world_position.y * scale + offset);
 
     gl_Position = ViewProj * world_position;
 }
