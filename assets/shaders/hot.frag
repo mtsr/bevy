@@ -357,6 +357,37 @@ void main() {
                             v_Uv);
 #endif
 
+    uint num_line_segments = 4;
+    vec3[] line_segments = {
+        vec3(100.0, 0.0, 20.0),
+        vec3(-100.0, 0.0, 20.0),
+        vec3(-100.0, 0.0, 10.0),
+        vec3(100.0, 0.0, 10.0),
+        vec3(100.0, 0.0, 20.0),
+    };
+
+    float line_width = 50;
+    line_width = line_width * gl_FragCoord.w;
+    float line_feather = 0.3;
+    vec4 line_color = vec4(1.0, 0.0, 0.0, 1.0);
+    vec3 plane_dir = vec3(0.0, -1.0, 0.0);
+
+    for (int i = 0; i < num_line_segments; i++) {
+        vec3 segment_p0 = line_segments[i];
+        vec3 segment_p1 = line_segments[i + 1];
+
+        vec3 plane_norm = normalize(cross(segment_p1 - segment_p0, plane_dir));
+        float plane_dist = abs(dot(v_WorldPosition, plane_norm) - dot(segment_p0, plane_norm));
+        // output_color = vec4(vec3(abs(plane_dist) / 10.0), 1.0);
+        if (abs(plane_dist) < line_width - line_feather) {
+            output_color = line_color;
+        } else if (plane_dist < line_width + line_feather) {
+            // output_color = smoothstep(output_color, line_color, vec4(vec3((line_width - plane_dist) / line_feather / 2.0), 1.0));
+            output_color = mix(output_color, line_color, (line_width + line_feather - plane_dist) / (line_feather) / 2.0);
+            // output_color = vec4(vec3((line_width - plane_dist) / line_feather / 2.0), 1.0);
+        }
+    }
+
 #ifndef STANDARDMATERIAL_UNLIT
     // calculate non-linear roughness from linear perceptualRoughness
 #    ifdef STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE
@@ -387,9 +418,6 @@ void main() {
     mat3 TBN = mat3(T, B, N);
     N = TBN * normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
 #    endif
-
-    // Use normals as color
-    // output_color = vec4(N * 0.5 + 0.5, 1.0);
 
 #    ifdef STANDARDMATERIAL_OCCLUSION_TEXTURE
     float occlusion = texture(sampler2D(StandardMaterial_occlusion_texture, StandardMaterial_occlusion_texture_sampler), v_Uv).r;

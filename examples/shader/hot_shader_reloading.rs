@@ -26,8 +26,9 @@ enum AppState {
 }
 
 fn main() {
-    App::build()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::build();
+
+    app.add_plugins(DefaultPlugins)
         // Adds the state
         .add_state(AppState::Setup)
         // and the state-dependent systems
@@ -39,7 +40,7 @@ fn main() {
         )
         .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup.system()))
         // Show that the TerrainMaterial is updated
-        .add_system(terrain_material_cycler_system.system())
+        // .add_system(terrain_material_cycler_system.system())
         .add_startup_system(setup_render_graph.system())
         .run();
 }
@@ -49,7 +50,7 @@ struct TerrainAssets {
     mesh: Handle<Mesh>,
     texture: Handle<Texture>,
     // vs: Handle<Shader>,
-    // fs: Handle<Shader>,
+    fs: Handle<Shader>,
 }
 
 impl TerrainAssets {
@@ -59,7 +60,7 @@ impl TerrainAssets {
             self.mesh.clone_untyped(),
             self.texture.clone_untyped(),
             // self.vs.clone_untyped(),
-            // self.fs.clone_untyped(),
+            self.fs.clone_untyped(),
         ]
     }
 }
@@ -72,7 +73,7 @@ fn load_terrain_assets(mut commands: Commands, asset_server: ResMut<AssetServer>
         mesh: asset_server.load("models/example_quarry2_simplified_3d_mesh.glb#Mesh0/Primitive0"),
         texture: asset_server.load("textures/terrain_LUT.png"),
         // vs: asset_server.load("shaders/hot.vert"),
-        // fs: asset_server.load("shaders/hot.frag"),
+        fs: asset_server.load("shaders/hot.frag"),
     };
     commands.insert_resource(terrain_assets);
 }
@@ -124,7 +125,6 @@ fn setup(
 ) {
     // Create a new shader pipeline with a custom vertex shader loaded from the asset directory
     // and the pbr fragment shader
-    let pbr_pipeline = pipelines.get(PBR_PIPELINE_HANDLE).unwrap();
     let mut pipe = PipelineDescriptor::default_config(ShaderStages {
         // vertex: terrain_assets.vs.clone(),
         vertex: shaders.add(Shader::from_glsl(
@@ -166,7 +166,7 @@ fn setup(
         }
         ",
         )),
-        fragment: pbr_pipeline.shader_stages.fragment.clone(),
+        fragment: Some(terrain_assets.fs.clone()),
     });
     pipe.primitive.cull_mode = None;
     let pipeline_handle = pipelines.add(pipe);
@@ -193,7 +193,7 @@ fn setup(
             ..Default::default()
         })
         .insert(TerrainMaterial {
-            scale: 1.0 / 3.0,
+            scale: 1.0 / 6.0,
             offset: 0.0,
         });
 
