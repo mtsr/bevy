@@ -39,8 +39,6 @@ fn main() {
             SystemSet::on_update(AppState::Setup).with_system(check_terrain_assets.system()),
         )
         .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup.system()))
-        // Show that the TerrainMaterial is updated
-        // .add_system(terrain_material_cycler_system.system())
         .add_startup_system(setup_render_graph.system())
         .run();
 }
@@ -121,7 +119,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut textures: ResMut<Assets<Texture>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     terrain_assets: Res<TerrainAssets>,
 ) {
     // Create a new shader pipeline with a custom vertex shader loaded from the asset directory
@@ -198,12 +195,6 @@ fn setup(
             offset: 0.0,
         });
 
-    // commands.spawn_bundle(PbrBundle {
-    //     mesh: meshes.add(shape::Box::new(10.0, 10.0, 10.0).into()),
-    //     transform: Transform::from_xyz(0.0, 10.0, 0.0),
-    //     ..Default::default()
-    // });
-
     // light
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
@@ -216,16 +207,9 @@ fn setup(
     });
 
     // camera
-    let mut transform = Transform::from_xyz(0.0, 600.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z);
-    // transform.rotate(Quat::from_axis_angle(Vec3::X, -std::f32::consts::PI / 4.0));
+    let transform = Transform::from_xyz(0.0, 300.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z);
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform,
         ..Default::default()
-    });
-}
-
-fn terrain_material_cycler_system(time: Res<Time>, mut query: Query<&mut TerrainMaterial>) {
-    query.for_each_mut(|mut terrain_material| {
-        terrain_material.offset += time.delta_seconds() / 10.0
     });
 }

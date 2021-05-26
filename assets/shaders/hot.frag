@@ -371,19 +371,41 @@ void main() {
     vec4 line_color = vec4(1.0, 0.0, 0.0, 1.0);
     vec3 plane_dir = vec3(0.0, -1.0, 0.0);
 
-    float plane_dist = 3.402823466e+38;
+    float distance_from_plane = 3.402823466e+38;
+    int closest = 0;
     for (int i = 0; i < num_line_segments; i++) {
         vec3 segment_p0 = line_segments[i];
         vec3 segment_p1 = line_segments[i + 1];
 
         vec3 plane_norm = normalize(cross(segment_p1 - segment_p0, plane_dir));
-        plane_dist = min(plane_dist, abs(dot(v_WorldPosition, plane_norm) - dot(segment_p0, plane_norm)));
+        float new_distance_from_plane = abs(dot(v_WorldPosition, plane_norm) - dot(segment_p0, plane_norm));
+        if (new_distance_from_plane < distance_from_plane) {
+            distance_from_plane = new_distance_from_plane;
+            closest = i;
+        }
     }
 
-    if (plane_dist < line_width - line_feather) {
-        output_color = line_color;
-    } else if (plane_dist < line_width + line_feather) {
-        output_color = mix(output_color, line_color, (line_width + line_feather - plane_dist) / (line_feather) / 2.0);
+    vec3 segment_p0 = line_segments[closest];
+    vec3 segment_p1 = line_segments[closest + 1];
+    vec3 plane_norm = normalize(cross(segment_p1 - segment_p0, plane_dir));
+
+    // vec3 distance_from_line = cross(v_WorldPosition - segment_p0, v_WorldPosition - (segment_p0 + plane_dir));
+    // vec3 plane_length = cross(segment_p1 - segment_p0, segment_p1 - (segment_p0 + plane_dir));
+    // float squared_distance_along_plane = dot(distance_from_line, distance_from_line) / dot(plane_length, plane_length);
+
+    vec3 perpendicular_component = (v_WorldPosition - segment_p0) - dot(v_WorldPosition - segment_p0, plane_dir) * plane_dir;
+    vec3 perpendicular_component_p1 = (segment_p1 - segment_p0) - dot(segment_p1 - segment_p0, plane_dir) * plane_dir;
+    float distance_sign = sign(dot(perpendicular_component, segment_p1 - segment_p0));
+    float distance_along_plane = distance_sign * sqrt(dot(perpendicular_component, perpendicular_component)) / sqrt(dot(perpendicular_component_p1, perpendicular_component_p1));
+
+    if (distance_along_plane >= 0 && distance_along_plane <= 1) {
+        if (distance_from_plane < line_width - line_feather) {
+            // output_color = vec4(vec3(distance_along_plane), 1.0);
+            output_color = line_color;
+        } else if (distance_from_plane < line_width + line_feather) {
+            // output_color = vec4(vec3(distance_along_plane), 1.0);
+            output_color = mix(output_color, line_color, (line_width + line_feather - distance_from_plane) / (line_feather) / 2.0);
+        }
     }
 
 #ifndef STANDARDMATERIAL_UNLIT
