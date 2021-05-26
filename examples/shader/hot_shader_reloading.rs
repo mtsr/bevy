@@ -1,7 +1,6 @@
 use bevy::{
     asset::LoadState,
     log,
-    pbr::render_graph::PBR_PIPELINE_HANDLE,
     prelude::*,
     render::{
         pipeline::{PipelineDescriptor, RenderPipeline},
