@@ -34,12 +34,12 @@ pub struct ExtractedPointLight {
 #[derive(Copy, Clone, AsStd140, Default, Debug)]
 pub struct GpuLight {
     color: Vec4,
+    // proj: Mat4,
+    position: Vec3,
     inverse_square_range: f32,
     radius: f32,
-    position: Vec3,
-    // view_proj: Mat4,
-    // range: Vec4,
-    proj: Mat4,
+    near: f32,
+    far: f32,
 }
 
 #[repr(C)]
@@ -150,7 +150,7 @@ impl FromWorld for ShadowShaders {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Front),
+                cull_mode: None,
                 polygon_mode: PolygonMode::Fill,
                 clamp_depth: false,
                 conservative: false,
@@ -209,32 +209,32 @@ struct CubeMapFace {
 const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
     CubeMapFace {
-        target: Vec3::X,
+        target: NEGATIVE_X,
         up: NEGATIVE_Y,
     },
     // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
     CubeMapFace {
-        target: NEGATIVE_X,
+        target: Vec3::X,
         up: NEGATIVE_Y,
     },
     // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
     CubeMapFace {
-        target: Vec3::Y,
+        target: NEGATIVE_Y,
         up: Vec3::Z,
     },
     // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
     CubeMapFace {
-        target: NEGATIVE_Y,
+        target: Vec3::Y,
         up: NEGATIVE_Z,
     },
     // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
     CubeMapFace {
-        target: Vec3::Z,
+        target: NEGATIVE_Z,
         up: NEGATIVE_Y,
     },
     // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
     CubeMapFace {
-        target: NEGATIVE_Z,
+        target: Vec3::Z,
         up: NEGATIVE_Y,
     },
 ];
@@ -344,10 +344,9 @@ pub fn prepare_lights(
                 radius: light.radius.into(),
                 position: light.transform.translation.into(),
                 inverse_square_range: 1.0 / (light.range * light.range),
-                // this could technically be copied to the gpu from the light's ViewUniforms
-                // view_proj: projection * view_translation.compute_matrix(),
-                // range: Vec4::new(0.1, light.range, 0.0, 0.0),
-                proj: projection,
+                near: 0.1,
+                far: light.range,
+                // proj: projection,
             };
         }
 
