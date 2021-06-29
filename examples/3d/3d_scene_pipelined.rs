@@ -3,7 +3,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::prelude::*,
     input::Input,
-    math::Vec3,
+    math::{Quat, Vec3},
     pbr2::{OmniLightBundle, PbrBundle, StandardMaterial},
     prelude::{App, Assets, KeyCode, Transform},
     render2::{
@@ -42,6 +42,32 @@ fn setup(
         }),
         ..Default::default()
     });
+
+    let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
+    transform.rotate(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2));
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        transform,
+        material: materials.add(StandardMaterial {
+            base_color: Color::INDIGO,
+            perceptual_roughness: 1.0,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+
+    let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
+    transform.rotate(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        transform,
+        material: materials.add(StandardMaterial {
+            base_color: Color::INDIGO,
+            perceptual_roughness: 1.0,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
     // cube
     commands
         .spawn_bundle(PbrBundle {
@@ -71,12 +97,14 @@ fn setup(
         .insert(Movable);
     // light
     commands.spawn_bundle(OmniLightBundle {
-        transform: Transform::from_xyz(5.0, 8.0, 2.0),
+        // transform: Transform::from_xyz(5.0, 8.0, 2.0),
+        transform: Transform::from_xyz(0.0, 2.0, 0.0),
         ..Default::default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-2.0, 5.0, 7.5)
+            .looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
         ..Default::default()
     });
 }
