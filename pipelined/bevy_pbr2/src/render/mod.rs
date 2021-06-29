@@ -95,7 +95,7 @@ impl FromWorld for PbrShaders {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        view_dimension: TextureViewDimension::D2Array,
+                        view_dimension: TextureViewDimension::CubeArray,
                     },
                     count: None,
                 },
