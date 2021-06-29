@@ -4,8 +4,8 @@ use bevy::{
     ecs::prelude::*,
     input::Input,
     math::{Quat, Vec3},
-    pbr2::{OmniLightBundle, PbrBundle, StandardMaterial},
-    prelude::{App, Assets, KeyCode, Transform},
+    pbr2::{OmniLight, OmniLightBundle, PbrBundle, StandardMaterial},
+    prelude::{App, Assets, BuildChildren, KeyCode, Transform},
     render2::{
         camera::PerspectiveCameraBundle,
         color::Color,
@@ -95,12 +95,85 @@ fn setup(
             ..Default::default()
         })
         .insert(Movable);
+
     // light
-    commands.spawn_bundle(OmniLightBundle {
-        // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-        transform: Transform::from_xyz(0.0, 2.0, 0.0),
-        ..Default::default()
-    });
+    commands
+        .spawn_bundle(OmniLightBundle {
+            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
+            transform: Transform::from_xyz(1.0, 2.0, 0.0),
+            omni_light: OmniLight {
+                color: Color::RED,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|builder| {
+            builder.spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 0.1,
+                    ..Default::default()
+                })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::RED,
+                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            });
+        });
+
+    // light
+    commands
+        .spawn_bundle(OmniLightBundle {
+            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
+            transform: Transform::from_xyz(-1.0, 2.0, 0.0),
+            omni_light: OmniLight {
+                color: Color::GREEN,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|builder| {
+            builder.spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 0.1,
+                    ..Default::default()
+                })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::GREEN,
+                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            });
+        });
+
+    // light
+    commands
+        .spawn_bundle(OmniLightBundle {
+            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
+            transform: Transform::from_xyz(0.0, 4.0, 0.0),
+            omni_light: OmniLight {
+                color: Color::BLUE,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|builder| {
+            builder.spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 0.1,
+                    ..Default::default()
+                })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::BLUE,
+                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            });
+        });
+
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 5.0, 7.5)

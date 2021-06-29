@@ -42,10 +42,12 @@ layout(location = 0) out vec4 o_Target;
 
 struct OmniLight {
     vec4 color;
-    float range;
+    float inverse_square_range;
     float radius;
     vec3 position;
-    mat4 view_projection;
+    // mat4 view_projection;
+    vec4 range;
+    mat4 projection;
 };
 
 // NOTE: this must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
@@ -63,12 +65,12 @@ struct StandardMaterial_t {
 };
 
 // NOTE: These must match those defined in bevy_pbr2/src/material.rs
-const uint FLAGS_BASE_COLOR_TEXTURE_BIT         = (1 << 0);
-const uint FLAGS_EMISSIVE_TEXTURE_BIT           = (1 << 1);
+const uint FLAGS_BASE_COLOR_TEXTURE_BIT = (1 << 0);
+const uint FLAGS_EMISSIVE_TEXTURE_BIT = (1 << 1);
 const uint FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT = (1 << 2);
-const uint FLAGS_OCCLUSION_TEXTURE_BIT          = (1 << 3);
-const uint FLAGS_DOUBLE_SIDED_BIT               = (1 << 4);
-const uint FLAGS_UNLIT_BIT                      = (1 << 5);
+const uint FLAGS_OCCLUSION_TEXTURE_BIT = (1 << 3);
+const uint FLAGS_DOUBLE_SIDED_BIT = (1 << 4);
+const uint FLAGS_UNLIT_BIT = (1 << 5);
 
 // View bindings - set 0
 layout(set = 0, binding = 0) uniform View {
@@ -80,8 +82,9 @@ layout(std140, set = 0, binding = 1) uniform Lights {
     uint NumLights;
     OmniLight OmniLights[MAX_OMNI_LIGHTS];
 };
-layout(set = 0, binding = 2) uniform texture2DArray t_Shadow;
+layout(set = 0, binding = 2) uniform textureCubeArray t_Shadow;
 layout(set = 0, binding = 3) uniform samplerShadow s_Shadow;
+// layout(set = 0, binding = 3) uniform sampler s_Shadow;
 
 // Material bindings - set 2
 layout(set = 2, binding = 0) uniform StandardMaterial {
@@ -100,7 +103,7 @@ layout(set = 2, binding = 6) uniform sampler metallic_roughness_sampler;
 layout(set = 2, binding = 7) uniform texture2D occlusion_texture;
 layout(set = 2, binding = 8) uniform sampler occlusion_sampler;
 
-#    define saturate(x) clamp(x, 0.0, 1.0)
+#define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
 float pow5(float x) {
@@ -262,7 +265,7 @@ vec3 omni_light(OmniLight light, float roughness, float NdotV, vec3 N, vec3 V, v
     vec3 light_to_frag = light.position.xyz - v_WorldPosition.xyz;
     float distance_square = dot(light_to_frag, light_to_frag);
     float rangeAttenuation =
-        getDistanceAttenuation(distance_square, light.range);
+        getDistanceAttenuation(distance_square, light.inverse_square_range);
 
     // Specular.
     // Representative Point Area Lights.
@@ -306,22 +309,6 @@ vec3 omni_light(OmniLight light, float roughness, float NdotV, vec3 N, vec3 V, v
     return ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
 }
 
-float fetch_shadow(int light_id, vec4 homogeneous_coords) {
-    if (homogeneous_coords.w <= 0.0) {
-        return 1.0;
-    }
-    // compensate for the Y-flip difference between the NDC and texture coordinates
-    const vec2 flip_correction = vec2(0.5, -0.5);
-    // compute texture coordinates for shadow lookup
-    vec4 light_local = vec4(
-        homogeneous_coords.xy * flip_correction/homogeneous_coords.w + 0.5,
-        light_id,
-        homogeneous_coords.z / homogeneous_coords.w
-    );
-    // do the lookup, using HW PCF and comparison
-    return texture(sampler2DArrayShadow(t_Shadow, s_Shadow), light_local);
-}
-
 void main() {
     vec4 output_color = Material.base_color;
     if ((Material.flags & FLAGS_BASE_COLOR_TEXTURE_BIT) != 0) {
@@ -354,25 +341,25 @@ void main() {
 
         vec3 N = normalize(v_WorldNormal);
 
-    // FIXME: Normal maps need an additional vertex attribute and vertex stage output/fragment stage input
-    //        Just use a separate shader for lit with normal maps?
-    // #    ifdef STANDARDMATERIAL_NORMAL_MAP
-    //     vec3 T = normalize(v_WorldTangent.xyz);
-    //     vec3 B = cross(N, T) * v_WorldTangent.w;
-    // #    endif
+        // FIXME: Normal maps need an additional vertex attribute and vertex stage output/fragment stage input
+        //        Just use a separate shader for lit with normal maps?
+        // #    ifdef STANDARDMATERIAL_NORMAL_MAP
+        //     vec3 T = normalize(v_WorldTangent.xyz);
+        //     vec3 B = cross(N, T) * v_WorldTangent.w;
+        // #    endif
 
         if ((Material.flags & FLAGS_DOUBLE_SIDED_BIT) != 0) {
             N = gl_FrontFacing ? N : -N;
-    // #        ifdef STANDARDMATERIAL_NORMAL_MAP
-    //     T = gl_FrontFacing ? T : -T;
-    //     B = gl_FrontFacing ? B : -B;
-    // #        endif
+            // #        ifdef STANDARDMATERIAL_NORMAL_MAP
+            //     T = gl_FrontFacing ? T : -T;
+            //     B = gl_FrontFacing ? B : -B;
+            // #        endif
         }
 
-    // #    ifdef STANDARDMATERIAL_NORMAL_MAP
-    //     mat3 TBN = mat3(T, B, N);
-    //     N = TBN * normalize(texture(sampler2D(normal_map, normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
-    // #    endif
+        // #    ifdef STANDARDMATERIAL_NORMAL_MAP
+        //     mat3 TBN = mat3(T, B, N);
+        //     N = TBN * normalize(texture(sampler2D(normal_map, normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
+        // #    endif
 
         vec3 V;
         if (ViewProj[3][3] != 1.0) { // If the projection is not orthographic
@@ -401,7 +388,31 @@ void main() {
         for (int i = 0; i < int(NumLights); ++i) {
             OmniLight light = OmniLights[i];
             vec3 light_contrib = omni_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
-            float shadow = fetch_shadow(i, light.view_projection * v_WorldPosition);
+
+            // because the shadow maps align with the axes we can get the worldspace depth by taking the largest absolute axis
+            vec3 frag_ls = light.position.xyz - v_WorldPosition.xyz;
+            vec3 abs_position_ls = abs(frag_ls);
+            float major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
+
+            // do a full projection
+            // vec4 clip = light.projection * vec4(0.0, 0.0, -major_axis_magnitude, 1.0);
+            // float depth = (clip.z / clip.w);
+
+            // alternatively do only the necessary multiplications using near/far
+            float proj_r = light.range.y / (light.range.x - light.range.y);
+            float z = -major_axis_magnitude * proj_r + light.range.x * proj_r;
+            float w = major_axis_magnitude;
+            float depth = z / w;
+
+            float bias = 0.0001;
+            float shadow = texture(samplerCubeArrayShadow(t_Shadow, s_Shadow), vec4(frag_ls, i), depth - bias);
+
+            // manual depth testing
+            // float shadow = texture(samplerCubeArray(t_Shadow, s_Shadow), vec4(-frag_ls, 6 * i)).r;
+            // shadow = depth > shadow ? 0.0 : 1.0;
+            // o_Target = vec4(vec3(shadow * 20 - 19, depth * 20 - 19, 0.0), 1.0);
+            // o_Target = vec4(vec3(shadow * 20 - 19), 1.0);
+
             light_accum += light_contrib * shadow;
         }
 
