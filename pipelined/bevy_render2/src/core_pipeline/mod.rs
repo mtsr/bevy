@@ -7,13 +7,13 @@ pub use main_pass_3d::*;
 pub use main_pass_driver::*;
 
 use crate::{
-    camera::{ActiveCameras, CameraPlugin},
+    camera::{ActiveCameras, CameraPlugin, ExtractedCamera},
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{sort_phase_system, RenderPhase},
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
     texture::TextureCache,
-    view::{ExtractedView, ViewPlugin},
+    view::{ExtractedView, ExtractedWindows, ViewPlugin},
     RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -65,7 +65,12 @@ impl Plugin for CorePipelinePlugin {
                 RenderStage::Extract,
                 extract_core_pipeline_camera_phases.system(),
             )
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system.system())
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_core_views_system
+                    .system()
+                    .after(crate::view::SystemLabels::PrepareWindows),
+            )
             .add_system_to_stage(
                 RenderStage::PhaseSort,
                 sort_phase_system::<Transparent2dPhase>.system(),
@@ -155,6 +160,10 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
+pub struct ColorAttachmentTexture {
+    pub view: TextureView,
+}
+
 pub fn extract_core_pipeline_camera_phases(
     mut commands: Commands,
     active_cameras: Res<ActiveCameras>,
@@ -179,10 +188,17 @@ pub fn prepare_core_views_system(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3dPhase>>>,
+    extracted_windows: Res<ExtractedWindows>,
+    views: Query<(Entity, &ExtractedView, &ExtractedCamera), With<RenderPhase<Transparent3dPhase>>>,
 ) {
-    for (entity, view) in views.iter() {
-        let cached_texture = texture_cache.get(
+    for (entity, view, camera) in views.iter() {
+        let extracted_window = extracted_windows.get(&camera.window_id).unwrap();
+        let view_texture = extracted_window.swap_chain_frame.as_ref().unwrap().clone();
+        commands
+            .entity(entity)
+            .insert(ColorAttachmentTexture { view: view_texture });
+
+        let view_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: None,
@@ -200,8 +216,8 @@ pub fn prepare_core_views_system(
             },
         );
         commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
+            texture: view_depth_texture.texture,
+            view: view_depth_texture.default_view,
         });
     }
 }
