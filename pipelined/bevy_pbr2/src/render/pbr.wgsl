@@ -381,9 +381,8 @@ fn fetch_shadow(light_id: i32, frag_position: vec4<f32>) -> f32 {
     //       a quad (2x2 fragments) being processed not being sampled, and this messing with
     //       mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     //       from LOD 0.
-    // return textureSampleCompareLevel(shadow_textures, shadow_textures_sampler, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
     let bias = 0.0001;
-    return textureSampleCompare(shadow_textures, shadow_textures_sampler, frag_ls, i32(light_id), depth - bias);
+    return textureSampleCompareLevel(shadow_textures, shadow_textures_sampler, frag_ls, i32(light_id), depth - bias);
 }
 
 struct FragmentInput {
