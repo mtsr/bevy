@@ -3,6 +3,7 @@ mod bundle;
 #[allow(clippy::module_inception)]
 mod camera;
 mod projection;
+pub mod view_pass_node;
 
 pub use active_cameras::*;
 use bevy_transform::components::GlobalTransform;
@@ -12,7 +13,7 @@ pub use bundle::*;
 pub use camera::*;
 pub use projection::*;
 
-use crate::{view::ExtractedView, RenderStage};
+use crate::{render_resource::TextureView, view::ExtractedView, RenderStage};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::prelude::*;
 
@@ -44,21 +45,23 @@ impl Plugin for CameraPlugin {
                 crate::camera::camera_system::<PerspectiveProjection>.system(),
             );
         let render_app = app.sub_app_mut(0);
-        render_app
-            .init_resource::<ExtractedCameraNames>()
-            .add_system_to_stage(RenderStage::Extract, extract_cameras.system());
+        render_app.add_system_to_stage(RenderStage::Extract, extract_cameras.system());
     }
-}
-
-#[derive(Default)]
-pub struct ExtractedCameraNames {
-    pub entities: HashMap<String, Entity>,
 }
 
 #[derive(Debug)]
 pub struct ExtractedCamera {
-    pub window_id: WindowId,
     pub name: Option<String>,
+}
+
+pub struct RenderTargets {
+    pub color_attachments: Vec<RenderTarget>,
+    pub depth_stencil_attachment: Option<TextureView>,
+}
+
+pub enum RenderTarget {
+    Window(WindowId),
+    Texture(TextureView),
 }
 
 fn extract_cameras(
@@ -75,10 +78,14 @@ fn extract_cameras(
             if let Some(window) = windows.get(camera.window) {
                 commands.get_or_spawn(entity).insert_bundle((
                     ExtractedCamera {
-                        window_id: camera.window,
                         name: camera.name.clone(),
                     },
+                    RenderTargets {
+                        color_attachments: vec![RenderTarget::Window(camera.window)],
+                        depth_stencil_attachment: None,
+                    },
                     ExtractedView {
+                        name: camera.name.as_ref().map(Into::into),
                         projection: camera.projection_matrix,
                         transform: *transform,
                         width: window.physical_width(),
@@ -88,6 +95,4 @@ fn extract_cameras(
             }
         }
     }
-
-    commands.insert_resource(ExtractedCameraNames { entities })
 }

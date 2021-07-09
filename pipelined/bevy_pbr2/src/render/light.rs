@@ -2,6 +2,7 @@ use crate::{AmbientLight, ExtractedMeshes, MeshMeta, PbrShaders, PointLight};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
 use bevy_render2::{
+    camera::RenderTargets,
     color::Color,
     core_pipeline::Transparent3dPhase,
     mesh::Mesh,
@@ -239,10 +240,6 @@ const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     },
 ];
 
-pub struct ViewLight {
-    pub depth_texture_view: TextureView,
-}
-
 pub struct ViewLights {
     pub light_depth_texture: Texture,
     pub light_depth_texture_view: TextureView,
@@ -324,8 +321,15 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn()
                     .insert_bundle((
-                        ViewLight { depth_texture_view },
+                        RenderTargets {
+                            color_attachments: vec![],
+                            depth_stencil_attachment: Some(depth_texture_view),
+                        },
                         ExtractedView {
+                            name: Some(format!(
+                                "point_light_{}_shadow_view_{}",
+                                light_index, face_index
+                            )),
                             width: SHADOW_SIZE.width,
                             height: SHADOW_SIZE.height,
                             transform: view_translation * view_rotation,
@@ -381,7 +385,7 @@ pub struct ShadowPhase;
 
 pub struct ShadowPassNode {
     main_view_query: QueryState<&'static ViewLights>,
-    view_light_query: QueryState<(&'static ViewLight, &'static RenderPhase<ShadowPhase>)>,
+    view_query: QueryState<(&'static ExtractedView, &'static RenderPhase<ShadowPhase>)>,
 }
 
 impl ShadowPassNode {
@@ -390,7 +394,7 @@ impl ShadowPassNode {
     pub fn new(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
-            view_light_query: QueryState::new(world),
+            view_query: QueryState::new(world),
         }
     }
 }
@@ -402,7 +406,7 @@ impl Node for ShadowPassNode {
 
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
-        self.view_light_query.update_archetypes(world);
+        self.view_query.update_archetypes(world);
     }
 
     fn run(
@@ -414,15 +418,16 @@ impl Node for ShadowPassNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
-                let (view_light, shadow_phase) = self
-                    .view_light_query
+                let (_view, shadow_phase) = self
+                    .view_query
                     .get_manual(world, view_light_entity)
                     .unwrap();
+
                 let pass_descriptor = RenderPassDescriptor {
                     label: Some("shadow_pass"),
                     color_attachments: &[],
                     depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
+                        view: &view_lights.light_depth_texture_view,
                         depth_ops: Some(Operations {
                             load: LoadOp::Clear(1.0),
                             store: true,

@@ -33,6 +33,7 @@ impl Plugin for ViewPlugin {
 }
 
 pub struct ExtractedView {
+    pub name: Option<String>,
     pub projection: Mat4,
     pub transform: GlobalTransform,
     pub width: u32,

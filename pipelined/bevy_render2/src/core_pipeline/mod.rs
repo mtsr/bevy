@@ -1,14 +1,14 @@
-mod main_pass_2d;
-mod main_pass_3d;
-mod main_pass_driver;
+// mod main_pass_2d;
+// mod main_pass_3d;
+// mod main_pass_driver;
 
-pub use main_pass_2d::*;
-pub use main_pass_3d::*;
-pub use main_pass_driver::*;
+// pub use main_pass_2d::*;
+// pub use main_pass_3d::*;
+// pub use main_pass_driver::*;
 
 use crate::{
-    camera::{ActiveCameras, CameraPlugin},
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    camera::{view_pass_node::ViewPassNode, ActiveCameras, CameraPlugin, RenderTargets},
+    render_graph::RenderGraph,
     render_phase::{sort_phase_system, RenderPhase},
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
@@ -75,75 +75,15 @@ impl Plugin for CorePipelinePlugin {
                 sort_phase_system::<Transparent3dPhase>.system(),
             );
 
-        let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
-
-        let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![
-            SlotInfo::new(draw_2d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_2d_graph::input::RENDER_TARGET, SlotType::TextureView),
-        ]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::VIEW_ENTITY,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::RENDER_TARGET,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
-        graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
-
-        let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![
-            SlotInfo::new(draw_3d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_3d_graph::input::RENDER_TARGET, SlotType::TextureView),
-            SlotInfo::new(draw_3d_graph::input::DEPTH, SlotType::TextureView),
-        ]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::RENDER_TARGET,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::DEPTH,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_DEPTH,
-            )
-            .unwrap();
-        graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
-
-        graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
-        graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
-        graph
-            .add_node_edge(ViewPlugin::VIEW_NODE, node::MAIN_PASS_DEPENDENCIES)
-            .unwrap();
-        graph
-            .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
-            .unwrap();
+        render_app
+            .world
+            .resource_scope(|world, mut render_graph: Mut<RenderGraph>| {
+                let opaque_phase_view_pass_node = ViewPassNode::<Transparent3dPhase>::new(world);
+                render_graph.add_node("opaque_phase_view_pass_node", opaque_phase_view_pass_node);
+                render_graph
+                    .add_node_edge(ViewPlugin::VIEW_NODE, "opaque_phase_view_pass_node")
+                    .unwrap();
+            });
     }
 }
 
@@ -176,12 +116,11 @@ pub fn extract_core_pipeline_camera_phases(
 }
 
 pub fn prepare_core_views_system(
-    mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedView), With<RenderPhase<Transparent3dPhase>>>,
+    mut views: Query<(&ExtractedView, &mut RenderTargets), With<RenderPhase<Transparent3dPhase>>>,
 ) {
-    for (entity, view) in views.iter() {
+    for (view, mut render_targets) in views.iter_mut() {
         let cached_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -199,9 +138,6 @@ pub fn prepare_core_views_system(
                 usage: TextureUsage::RENDER_ATTACHMENT,
             },
         );
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-        });
+        render_targets.depth_stencil_attachment = Some(cached_texture.default_view);
     }
 }

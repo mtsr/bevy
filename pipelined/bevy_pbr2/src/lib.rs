@@ -11,9 +11,10 @@ pub use render::*;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    core_pipeline,
+    camera::view_pass_node::ViewPassNode,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, DrawFunctions},
+    view::ViewPlugin,
     RenderStage,
 };
 
@@ -56,34 +57,29 @@ impl Plugin for PbrPlugin {
 
         let draw_pbr = DrawPbr::new(&mut render_app.world);
         let draw_shadow_mesh = DrawShadowMesh::new(&mut render_app.world);
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        let render_world = render_app.world.cell();
-        let draw_functions = render_world.get_resource::<DrawFunctions>().unwrap();
-        draw_functions.write().add(draw_pbr);
-        draw_functions.write().add(draw_shadow_mesh);
-        let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
-        graph.add_node("pbr", PbrNode);
-        graph
-            .add_node_edge("pbr", core_pipeline::node::MAIN_PASS_DEPENDENCIES)
-            .unwrap();
 
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(core_pipeline::draw_3d_graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::SHADOW_PASS,
-                core_pipeline::draw_3d_graph::node::MAIN_PASS,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::SHADOW_PASS,
-                ShadowPassNode::IN_VIEW,
-            )
-            .unwrap();
+        render_app
+            .world
+            .resource_scope(|world, draw_functions: Mut<DrawFunctions>| {
+                world.resource_scope(|world, mut render_graph: Mut<RenderGraph>| {
+                    draw_functions.write().add(draw_pbr);
+                    draw_functions.write().add(draw_shadow_mesh);
+                    render_graph.add_node("pbr", PbrNode);
+
+                    render_graph
+                        .add_node_edge("pbr", "opaque_phase_view_pass_node")
+                        .unwrap();
+
+                    let shadow_phase_view_pass_node = ViewPassNode::<ShadowPhase>::new(world);
+                    render_graph
+                        .add_node("shadow_phase_view_pass_node", shadow_phase_view_pass_node);
+                    render_graph
+                        .add_node_edge(ViewPlugin::VIEW_NODE, "shadow_phase_view_pass_node")
+                        .unwrap();
+                    render_graph
+                        .add_node_edge("shadow_phase_view_pass_node", "opaque_phase_view_pass_node")
+                        .unwrap();
+                });
+            });
     }
 }
