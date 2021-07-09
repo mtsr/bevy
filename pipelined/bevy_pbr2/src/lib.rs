@@ -11,7 +11,7 @@ pub use render::*;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    camera::view_pass_node::ViewPassNode,
+    camera::ViewPassNode,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, DrawFunctions},
     view::ViewPlugin,

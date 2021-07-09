@@ -3,7 +3,8 @@ mod bundle;
 #[allow(clippy::module_inception)]
 mod camera;
 mod projection;
-pub mod view_pass_node;
+mod view_pass_node;
+mod viewport;
 
 pub use active_cameras::*;
 use bevy_transform::components::GlobalTransform;
@@ -12,8 +13,14 @@ use bevy_window::{WindowId, Windows};
 pub use bundle::*;
 pub use camera::*;
 pub use projection::*;
+pub use view_pass_node::*;
+pub use viewport::*;
+use wgpu::{LoadOp, Operations};
 
-use crate::{render_resource::TextureView, view::ExtractedView, RenderStage};
+use crate::{
+    core_pipeline::Transparent3dPhase, render_phase::RenderPhase, render_resource::TextureView,
+    view::ExtractedView, RenderStage,
+};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::prelude::*;
 
@@ -55,8 +62,13 @@ pub struct ExtractedCamera {
 }
 
 pub struct RenderTargets {
-    pub color_attachments: Vec<RenderTarget>,
+    pub color_attachments: Vec<ColorAttachment>,
     pub depth_stencil_attachment: Option<TextureView>,
+}
+
+pub struct ColorAttachment {
+    pub render_target: RenderTarget,
+    pub ops: Operations<wgpu::Color>,
 }
 
 pub enum RenderTarget {
@@ -66,33 +78,41 @@ pub enum RenderTarget {
 
 fn extract_cameras(
     mut commands: Commands,
-    active_cameras: Res<ActiveCameras>,
     windows: Res<Windows>,
-    query: Query<(Entity, &Camera, &GlobalTransform)>,
+    query: Query<(Entity, &Camera, &GlobalTransform, Option<&Viewport>)>,
 ) {
     let mut entities = HashMap::default();
-    for camera in active_cameras.iter() {
-        let name = &camera.name;
-        if let Some((entity, camera, transform)) = camera.entity.and_then(|e| query.get(e).ok()) {
-            entities.insert(name.clone(), entity);
-            if let Some(window) = windows.get(camera.window) {
-                commands.get_or_spawn(entity).insert_bundle((
-                    ExtractedCamera {
-                        name: camera.name.clone(),
-                    },
-                    RenderTargets {
-                        color_attachments: vec![RenderTarget::Window(camera.window)],
-                        depth_stencil_attachment: None,
-                    },
-                    ExtractedView {
-                        name: camera.name.as_ref().map(Into::into),
-                        projection: camera.projection_matrix,
-                        transform: *transform,
-                        width: window.physical_width(),
-                        height: window.physical_height(),
-                    },
-                ));
+    query.for_each(|(entity, camera, transform, viewport)| {
+        entities.insert(camera.name.clone(), entity);
+        if let Some(window) = windows.get(camera.window) {
+            let mut entity_commands = commands.get_or_spawn(entity);
+            entity_commands.insert_bundle((
+                ExtractedCamera {
+                    name: camera.name.clone(),
+                },
+                RenderTargets {
+                    color_attachments: vec![ColorAttachment {
+                        render_target: RenderTarget::Window(camera.window),
+                        ops: Operations {
+                            // load: LoadOp::Clear(Color::rgb(0.4, 0.4, 0.4).into()),
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    }],
+                    depth_stencil_attachment: None,
+                },
+                ExtractedView {
+                    name: camera.name.as_ref().map(Into::into),
+                    projection: camera.projection_matrix,
+                    transform: *transform,
+                    width: window.physical_width(),
+                    height: window.physical_height(),
+                },
+                RenderPhase::<Transparent3dPhase>::default(),
+            ));
+            if let Some(viewport) = viewport {
+                entity_commands.insert(viewport.clone());
             }
         }
-    }
+    });
 }

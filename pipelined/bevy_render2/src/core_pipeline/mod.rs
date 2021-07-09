@@ -7,7 +7,7 @@
 // pub use main_pass_driver::*;
 
 use crate::{
-    camera::{view_pass_node::ViewPassNode, ActiveCameras, CameraPlugin, RenderTargets},
+    camera::{RenderTargets, ViewPassNode},
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, RenderPhase},
     render_resource::{Texture, TextureView},
@@ -61,10 +61,6 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.sub_app_mut(0);
         render_app
-            .add_system_to_stage(
-                RenderStage::Extract,
-                extract_core_pipeline_camera_phases.system(),
-            )
             .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system.system())
             .add_system_to_stage(
                 RenderStage::PhaseSort,
@@ -93,26 +89,6 @@ pub struct Transparent2dPhase;
 pub struct ViewDepthTexture {
     pub texture: Texture,
     pub view: TextureView,
-}
-
-pub fn extract_core_pipeline_camera_phases(
-    mut commands: Commands,
-    active_cameras: Res<ActiveCameras>,
-) {
-    if let Some(camera_2d) = active_cameras.get(CameraPlugin::CAMERA_2D) {
-        if let Some(entity) = camera_2d.entity {
-            commands
-                .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2dPhase>::default());
-        }
-    }
-    if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
-        if let Some(entity) = camera_3d.entity {
-            commands
-                .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent3dPhase>::default());
-        }
-    }
 }
 
 pub fn prepare_core_views_system(

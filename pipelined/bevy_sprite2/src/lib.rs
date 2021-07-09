@@ -37,8 +37,8 @@ impl Plugin for SpritePlugin {
         let render_world = app.sub_app_mut(0).world.cell();
         let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node("sprite", SpriteNode);
-        graph
-            .add_node_edge("sprite", core_pipeline::node::MAIN_PASS_DEPENDENCIES)
-            .unwrap();
+        // graph
+        //     .add_node_edge("sprite", core_pipeline::node::MAIN_PASS_DEPENDENCIES)
+        //     .unwrap();
     }
 }

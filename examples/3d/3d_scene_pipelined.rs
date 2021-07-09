@@ -3,14 +3,15 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::prelude::*,
     input::Input,
-    math::{Quat, Vec3},
+    math::{Quat, Vec2, Vec3},
     pbr2::{PbrBundle, PointLight, PointLightBundle, StandardMaterial},
     prelude::{App, Assets, BuildChildren, KeyCode, Transform},
     render2::{
-        camera::PerspectiveCameraBundle,
+        camera::{Camera, PerspectiveCameraBundle, PerspectiveProjection, Viewport},
         color::Color,
         mesh::{shape, Mesh},
     },
+    window::Windows,
     PipelinedDefaultPlugins,
 };
 
@@ -31,6 +32,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    windows: Res<Windows>,
 ) {
     // plane
     commands.spawn_bundle(PbrBundle {
@@ -175,11 +177,43 @@ fn setup(
         });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 5.0, 7.5)
-            .looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
-        ..Default::default()
-    });
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            perspective_projection: PerspectiveProjection {
+                aspect_ratio: 640.0 / 720.0,
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(-7.5, 5.0, 2.0)
+                .looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
+            ..Default::default()
+        })
+        .insert(Viewport {
+            origin: Vec2::new(0.0, 0.0),
+            size: Vec2::new(640.0, 720.0),
+            depth_range: 0.0..1.0,
+        });
+
+    // camera
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            camera: Camera {
+                name: Some("2nd_camera".to_string()),
+                window: windows.get_primary().unwrap().id(),
+                ..Default::default()
+            },
+            perspective_projection: PerspectiveProjection {
+                aspect_ratio: 640.0 / 720.0,
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(-2.0, 5.0, 7.5)
+                .looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
+            ..Default::default()
+        })
+        .insert(Viewport {
+            origin: Vec2::new(640.0, 0.0),
+            size: Vec2::new(640.0, 720.0),
+            depth_range: 0.0..1.0,
+        });
 }
 
 fn movement(
