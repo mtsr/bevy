@@ -7,10 +7,9 @@ use bevy_render2::{
     core_pipeline::Transparent3dPhase,
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::{Draw, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderDevice,
     texture::*,
     view::{ExtractedView, ViewUniformOffset},
 };
@@ -382,83 +381,6 @@ pub fn prepare_lights(
 }
 
 pub struct ShadowPhase;
-
-pub struct ShadowPassNode {
-    main_view_query: QueryState<&'static ViewLights>,
-    view_query: QueryState<(&'static ExtractedView, &'static RenderPhase<ShadowPhase>)>,
-}
-
-impl ShadowPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for ShadowPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.view_query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
-            for view_light_entity in view_lights.lights.iter().copied() {
-                let (_view, shadow_phase) = self
-                    .view_query
-                    .get_manual(world, view_light_entity)
-                    .unwrap();
-
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some("shadow_pass"),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_lights.light_depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(1.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                };
-
-                let draw_functions = world.get_resource::<DrawFunctions>().unwrap();
-
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut draw_functions = draw_functions.write();
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for drawable in shadow_phase.drawn_things.iter() {
-                    let draw_function = draw_functions.get_mut(drawable.draw_function).unwrap();
-                    draw_function.draw(
-                        world,
-                        &mut tracked_pass,
-                        view_light_entity,
-                        drawable.draw_key,
-                        drawable.sort_key,
-                    );
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
 
 type DrawShadowMeshParams<'s, 'w> = (
     Res<'w, ShadowShaders>,
