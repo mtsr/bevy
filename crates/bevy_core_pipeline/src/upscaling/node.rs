@@ -9,13 +9,13 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::TonemappingTarget;
+use super::UpscalingTarget;
 
-pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, &'static TonemappingTarget), With<ExtractedView>>,
+pub struct UpscalingNode {
+    query: QueryState<(&'static ViewTarget, &'static UpscalingTarget), With<ExtractedView>>,
 }
 
-impl TonemappingNode {
+impl UpscalingNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -25,9 +25,9 @@ impl TonemappingNode {
     }
 }
 
-impl Node for TonemappingNode {
+impl Node for UpscalingNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(UpscalingNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -44,23 +44,23 @@ impl Node for TonemappingNode {
 
         let render_pipeline_cache = world.get_resource::<RenderPipelineCache>().unwrap();
 
-        let (target, tonemapping_target) = match self.query.get_manual(world, view_entity) {
+        let (target, upscaling_target) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
             Err(_) => return Ok(()),
         };
 
-        let pipeline = match render_pipeline_cache.get(tonemapping_target.pipeline) {
+        let pipeline = match render_pipeline_cache.get(upscaling_target.pipeline) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("tonemapping_pass"),
+            label: Some("upscaling_pass"),
             color_attachments: &[RenderPassColorAttachment {
-                view: &target.ldr_texture,
+                view: &target.out_texture,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
+                    load: LoadOp::Clear(Default::default()), // TODO dont_care
                     store: true,
                 },
             }],
@@ -72,7 +72,7 @@ impl Node for TonemappingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &tonemapping_target.hdr_texture_bind_group, &[]);
+        render_pass.set_bind_group(0, &upscaling_target.ldr_texture_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())

@@ -12,7 +12,7 @@ use crate::{
     camera::{ExtractedCamera, ExtractedCameraNames},
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::TextureCache,
+    texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -95,6 +95,7 @@ pub struct ViewTarget {
     pub hdr_texture: TextureView,
     pub sampled_hdr_texture: Option<TextureView>,
 
+    pub ldr_texture: TextureView,
     pub out_texture: TextureView,
 }
 
@@ -144,9 +145,23 @@ impl ViewTarget {
                 .default_view
         });
 
+        let ldr_texture = texture_cache.get(
+            render_device,
+            TextureDescriptor {
+                label: Some("ldr_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::bevy_default(),
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            },
+        );
+
         ViewTarget {
             hdr_texture: hdr_texture.default_view,
             sampled_hdr_texture,
+            ldr_texture: ldr_texture.default_view,
             out_texture,
         }
     }
