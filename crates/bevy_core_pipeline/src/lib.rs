@@ -4,6 +4,7 @@ mod main_pass_2d;
 mod main_pass_3d;
 mod main_pass_driver;
 mod tonemapping;
+mod upscaling;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -35,6 +36,8 @@ use bevy_render::{
 };
 use tonemapping::TonemappingNode;
 use tonemapping::TonemappingPlugin;
+use upscaling::UpscalingNode;
+use upscaling::UpscalingPlugin;
 
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
@@ -75,6 +78,7 @@ pub mod draw_3d_graph {
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
         pub const TONEMAPPING: &str = "tonemapping";
+        pub const UPSCALING: &str = "upscaling";
     }
 }
 
@@ -91,7 +95,8 @@ pub struct CorePipelinePlugin;
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>()
-            .add_plugin(TonemappingPlugin);
+            .add_plugin(TonemappingPlugin)
+            .add_plugin(UpscalingPlugin);
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app
@@ -111,6 +116,7 @@ impl Plugin for CorePipelinePlugin {
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let tonemapping_3d = TonemappingNode::new(&mut render_app.world);
+        let upscaling_3d = UpscalingNode::new(&mut render_app.world);
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
         let mut draw_2d_graph = RenderGraph::default();
@@ -132,11 +138,13 @@ impl Plugin for CorePipelinePlugin {
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
         draw_3d_graph.add_node(draw_3d_graph::node::TONEMAPPING, tonemapping_3d);
+        draw_3d_graph.add_node(draw_3d_graph::node::UPSCALING, upscaling_3d);
 
         let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             draw_3d_graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
+
         draw_3d_graph
             .add_slot_edge(
                 input_node_id,
@@ -145,6 +153,7 @@ impl Plugin for CorePipelinePlugin {
                 MainPass3dNode::IN_VIEW,
             )
             .unwrap();
+
         draw_3d_graph
             .add_node_edge(
                 draw_3d_graph::node::MAIN_PASS,
@@ -159,6 +168,22 @@ impl Plugin for CorePipelinePlugin {
                 TonemappingNode::IN_VIEW,
             )
             .unwrap();
+
+        draw_3d_graph
+            .add_node_edge(
+                draw_3d_graph::node::TONEMAPPING,
+                draw_3d_graph::node::UPSCALING,
+            )
+            .unwrap();
+        draw_3d_graph
+            .add_slot_edge(
+                input_node_id,
+                draw_3d_graph::input::VIEW_ENTITY,
+                draw_3d_graph::node::UPSCALING,
+                UpscalingNode::IN_VIEW,
+            )
+            .unwrap();
+
         graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
 
         let mut clear_graph = RenderGraph::default();
