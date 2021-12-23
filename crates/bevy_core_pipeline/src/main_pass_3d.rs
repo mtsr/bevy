@@ -60,7 +60,7 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[target.get_color_attachment_hdr(Operations {
                     load: LoadOp::Load,
                     store: true,
                 })],
@@ -94,7 +94,7 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[target.get_color_attachment_hdr(Operations {
                     load: LoadOp::Load,
                     store: true,
                 })],
@@ -128,7 +128,7 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[target.get_color_attachment_hdr(Operations {
                     load: LoadOp::Load,
                     store: true,
                 })],

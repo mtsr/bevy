@@ -60,7 +60,7 @@ impl Node for ClearPassNode {
             }
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[target.get_color_attachment_hdr(Operations {
                     load: LoadOp::Clear(clear_color.0.into()),
                     store: true,
                 })],

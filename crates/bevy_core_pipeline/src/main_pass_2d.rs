@@ -47,7 +47,7 @@ impl Node for MainPass2dNode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
+                view: &target.out_texture,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,
