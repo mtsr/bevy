@@ -1,6 +1,7 @@
 pub mod wireframe;
 
 mod alpha;
+pub mod bloom;
 mod bundle;
 mod light;
 mod material;
@@ -8,6 +9,7 @@ mod pbr_material;
 mod render;
 
 pub use alpha::*;
+use bloom::BloomPlugin;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -58,6 +60,8 @@ pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugin(BloomPlugin);
+
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.set_untracked(
             PBR_SHADER_HANDLE,
