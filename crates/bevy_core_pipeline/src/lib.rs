@@ -67,6 +67,8 @@ pub mod draw_2d_graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const TONEMAPPING: &str = "tonemapping";
+        pub const UPSCALING: &str = "upscaling";
     }
 }
 
@@ -114,12 +116,17 @@ impl Plugin for CorePipelinePlugin {
 
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
+        let tonemapping_2d = TonemappingNode::new(&mut render_app.world);
+        let upscaling_2d = UpscalingNode::new(&mut render_app.world);
+
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let tonemapping_3d = TonemappingNode::new(&mut render_app.world);
         let upscaling_3d = UpscalingNode::new(&mut render_app.world);
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
         let mut draw_2d_graph = RenderGraph::default();
+        draw_2d_graph.add_node(draw_2d_graph::node::TONEMAPPING, tonemapping_2d);
+        draw_2d_graph.add_node(draw_2d_graph::node::UPSCALING, upscaling_2d);
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
         let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
             draw_2d_graph::input::VIEW_ENTITY,
@@ -133,6 +140,37 @@ impl Plugin for CorePipelinePlugin {
                 MainPass2dNode::IN_VIEW,
             )
             .unwrap();
+
+        draw_2d_graph
+            .add_node_edge(
+                draw_2d_graph::node::MAIN_PASS,
+                draw_2d_graph::node::TONEMAPPING,
+            )
+            .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                input_node_id,
+                draw_2d_graph::input::VIEW_ENTITY,
+                draw_2d_graph::node::TONEMAPPING,
+                TonemappingNode::IN_VIEW,
+            )
+            .unwrap();
+
+        draw_2d_graph
+            .add_node_edge(
+                draw_3d_graph::node::TONEMAPPING,
+                draw_3d_graph::node::UPSCALING,
+            )
+            .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                input_node_id,
+                draw_3d_graph::input::VIEW_ENTITY,
+                draw_3d_graph::node::UPSCALING,
+                UpscalingNode::IN_VIEW,
+            )
+            .unwrap();
+
         graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
