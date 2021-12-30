@@ -307,7 +307,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let mesh_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =

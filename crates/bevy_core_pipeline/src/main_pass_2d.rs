@@ -5,7 +5,7 @@ use bevy_render::{
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
-    view::{ExtractedView, ViewTarget},
+    view::{ExtractedView, ViewMainTexture, ViewTarget},
 };
 
 pub struct MainPass2dNode {
@@ -52,10 +52,15 @@ impl Node for MainPass2dNode {
             .get_manual(world, view_entity)
             .expect("view entity should exist");
 
+        let view = match &target.main_texture {
+            ViewMainTexture::Hdr { hdr_texture, .. } => hdr_texture,
+            ViewMainTexture::NoHdr { texture, .. } => texture,
+        };
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[RenderPassColorAttachment {
-                view: &target.hdr_texture,
+                view,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,
@@ -81,7 +86,7 @@ impl Node for MainPass2dNode {
         }
 
         graph
-            .set_output(MainPass2dNode::OUT_TEXTURE, target.hdr_texture.clone())
+            .set_output(MainPass2dNode::OUT_TEXTURE, view.clone())
             .unwrap();
 
         Ok(())

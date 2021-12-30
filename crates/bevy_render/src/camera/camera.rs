@@ -25,6 +25,7 @@ pub struct Camera {
     pub depth_calculation: DepthCalculation,
     pub near: f32,
     pub far: f32,
+    pub hdr: bool,
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]

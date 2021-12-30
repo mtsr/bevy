@@ -44,6 +44,7 @@ impl PerspectiveCameraBundle {
                 name: Some(name.to_string()),
                 near: perspective_projection.near,
                 far: perspective_projection.far,
+                hdr: true,
                 ..Default::default()
             },
             perspective_projection,
@@ -98,6 +99,7 @@ impl OrthographicCameraBundle {
                 name: Some(CameraPlugin::CAMERA_2D.to_string()),
                 near: orthographic_projection.near,
                 far: orthographic_projection.far,
+                hdr: true,
                 ..Default::default()
             },
             orthographic_projection,
@@ -126,6 +128,7 @@ impl OrthographicCameraBundle {
                 name: Some(CameraPlugin::CAMERA_3D.to_string()),
                 near: orthographic_projection.near,
                 far: orthographic_projection.far,
+                hdr: true,
                 ..Default::default()
             },
             orthographic_projection,

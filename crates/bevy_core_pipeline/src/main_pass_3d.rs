@@ -169,7 +169,10 @@ impl Node for MainPass3dNode {
         }
 
         graph
-            .set_output(MainPass3dNode::OUT_TEXTURE, target.hdr_texture.clone())
+            .set_output(
+                MainPass3dNode::OUT_TEXTURE,
+                target.main_texture.maybe_hdr_texture().clone(),
+            )
             .unwrap();
 
         Ok(())

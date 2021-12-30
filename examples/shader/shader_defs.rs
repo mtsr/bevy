@@ -148,7 +148,9 @@ fn queue_custom(
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let key = key
+                    | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
+                    | MeshPipelineKey::from_hdr(view.hdr);
                 let pipeline =
                     pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
                 transparent_phase.add(Transparent3d {

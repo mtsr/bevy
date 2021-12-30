@@ -15,6 +15,9 @@ use bevy_reflect::TypeUuid;
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
 
+const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+
 pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
@@ -23,6 +26,11 @@ impl Plugin for TonemappingPlugin {
         shaders.set_untracked(
             TONEMAPPING_SHADER_HANDLE,
             Shader::from_wgsl(include_str!("tonemapping.wgsl")),
+        );
+        shaders.set_untracked(
+            TONEMAPPING_SHARED_SHADER_HANDLE,
+            Shader::from_wgsl(include_str!("tonemapping_shared.wgsl"))
+                .with_import_path("bevy_core_pipeline::tonemapping"),
         );
 
         app.sub_app_mut(RenderApp)
