@@ -348,10 +348,7 @@ pub fn add_clusters(
             Some(window) => window,
             None => continue,
         };
-        let clusters = Clusters::from_screen_size_and_z_slices(
-            UVec2::new(window.physical_width(), window.physical_height()),
-            Z_SLICES,
-        );
+        let clusters = Clusters::from_screen_size_and_z_slices(UVec2::new(320, 240), Z_SLICES);
         commands.entity(entity).insert(clusters);
     }
 }
@@ -361,7 +358,7 @@ pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Cl
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let inverse_projection = camera.projection_matrix.inverse();
         let window = windows.get(camera.window).unwrap();
-        let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
+        let screen_size_u32 = UVec2::new(320, 240);
         // Don't update clusters if screen size is 0.
         if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
             continue;

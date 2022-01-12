@@ -603,8 +603,8 @@ impl Node for BloomNode {
         let mip_chain = if let Some(ref mut mip_chain) = *mip_chain {
             // if the window changes but the size of the new window doesn't, using ExtractedWindow.size_changed
             // wouldn't trigger a resize, comparing the size ensures that it does
-            if mip_chain.width != extracted_window.physical_width
-                || mip_chain.height != extracted_window.physical_height
+            if mip_chain.width != 320
+                || mip_chain.height != 240
                 || mip_chain.target_id != hdr_target.id()
             {
                 *mip_chain = MipChain::new(
@@ -612,8 +612,8 @@ impl Node for BloomNode {
                     bloom_shaders,
                     uniforms_buffer,
                     hdr_target,
-                    extracted_window.physical_width,
-                    extracted_window.physical_height,
+                    320,
+                    240,
                 );
             }
 
@@ -624,8 +624,8 @@ impl Node for BloomNode {
                 bloom_shaders,
                 uniforms_buffer,
                 hdr_target,
-                extracted_window.physical_width,
-                extracted_window.physical_height,
+                320,
+                240,
             ));
 
             mip_chain.as_ref().unwrap()

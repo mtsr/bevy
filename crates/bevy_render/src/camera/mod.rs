@@ -92,8 +92,8 @@ fn extract_cameras(
                     ExtractedView {
                         projection: camera.projection_matrix,
                         transform: *transform,
-                        width: window.physical_width().max(1),
-                        height: window.physical_height().max(1),
+                        width: 320,
+                        height: 240,
                         near: camera.near,
                         far: camera.far,
                         hdr: camera.hdr,

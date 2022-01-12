@@ -294,7 +294,7 @@ fn prepare_view_targets(
             continue;
         };
 
-        let size = UVec2::new(window.physical_width, window.physical_height);
+        let size = UVec2::new(320, 240);
         let view_target = ViewTarget::new(
             &*render_device,
             &mut *texture_cache,
