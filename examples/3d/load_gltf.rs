@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_PI_4, FRAC_PI_6};
+
 use bevy::prelude::*;
 
 fn main() {
@@ -6,6 +8,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
         })
+        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(animate_light_direction)
@@ -14,10 +17,16 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..Default::default()
-    });
+    // commands.spawn_bundle(PerspectiveCameraBundle {
+    //     transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+    //     ..Default::default()
+    // });
+    let mut camera_bundle = OrthographicCameraBundle::new_3d();
+    let mut transform = Transform::from_xyz(0.7, 1.0, 0.7);
+    transform.rotate(Quat::from_axis_angle(Vec3::X, -FRAC_PI_6));
+    transform.rotate(Quat::from_axis_angle(Vec3::Y, FRAC_PI_4));
+    camera_bundle.transform = transform;
+    commands.spawn_bundle(camera_bundle);
     const HALF_SIZE: f32 = 1.0;
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
