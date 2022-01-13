@@ -479,6 +479,13 @@ impl SpecializedPipeline for MeshPipeline {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
         }
 
+        let format = match key.contains(MeshPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
+        let mut targets = vec![];
+
         let (label, blend, depth_write_enabled);
         if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
             label = "transparent_mesh_pipeline".into();
@@ -486,6 +493,12 @@ impl SpecializedPipeline for MeshPipeline {
             // For the transparent pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
+
+            targets.push(ColorTargetState {
+                format,
+                blend,
+                write_mask: ColorWrites::ALL,
+            });
         } else {
             label = "opaque_mesh_pipeline".into();
             blend = Some(BlendState::REPLACE);
@@ -493,6 +506,18 @@ impl SpecializedPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
+
+            targets.push(ColorTargetState {
+                format,
+                blend,
+                write_mask: ColorWrites::ALL,
+            });
+
+            targets.push(ColorTargetState {
+                format: TextureFormat::bevy_default(),
+                blend,
+                write_mask: ColorWrites::ALL,
+            });
         }
 
         #[cfg(feature = "webgl")]
@@ -501,11 +526,6 @@ impl SpecializedPipeline for MeshPipeline {
         if !key.contains(MeshPipelineKey::HDR) {
             shader_defs.push("TONEMAPPING_IN_PBR_SHADER".to_string());
         }
-
-        let format = match key.contains(MeshPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -522,11 +542,7 @@ impl SpecializedPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
-                    format,
-                    blend,
-                    write_mask: ColorWrites::ALL,
-                }],
+                targets,
             }),
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {

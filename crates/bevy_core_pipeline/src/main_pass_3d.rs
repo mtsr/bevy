@@ -3,9 +3,12 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    render_resource::{
+        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+        RenderPassDescriptor,
+    },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewNormalsTexture, ViewTarget},
 };
 
 pub struct MainPass3dNode {
@@ -16,6 +19,7 @@ pub struct MainPass3dNode {
             &'static RenderPhase<Transparent3d>,
             &'static ViewTarget,
             &'static ViewDepthTexture,
+            Option<&'static ViewNormalsTexture>,
         ),
         With<ExtractedView>,
     >,
@@ -55,23 +59,36 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
+        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth, normals) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
                 Err(_) => return Ok(()), // No window
             };
 
         {
+            let mut color_attachments = vec![target.get_color_attachment_hdr(Operations {
+                load: LoadOp::Load,
+                store: true,
+            })];
+
+            if let Some(normals) = normals {
+                color_attachments.push(RenderPassColorAttachment {
+                    view: &normals.view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    },
+                });
+            };
+
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[target.get_color_attachment_hdr(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                })],
+                color_attachments: color_attachments.as_slice(),
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

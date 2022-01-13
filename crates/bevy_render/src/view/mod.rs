@@ -236,6 +236,12 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
+#[derive(Component)]
+pub struct ViewNormalsTexture {
+    pub texture: Texture,
+    pub view: TextureView,
+}
+
 fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -305,5 +311,33 @@ fn prepare_view_targets(
         );
 
         commands.entity(entity).insert(view_target);
+
+        let size = Extent3d {
+            width: size.x,
+            height: size.y,
+            depth_or_array_layers: 1,
+        };
+
+        let normals_texture = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("normals"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::bevy_default(),
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::RENDER_ATTACHMENT
+                    | TextureUsages::TEXTURE_BINDING,
+            },
+        );
+
+        let normals = ViewNormalsTexture {
+            texture: normals_texture.texture,
+            view: normals_texture.default_view,
+        };
+
+        commands.entity(entity).insert(normals);
     }
 }
