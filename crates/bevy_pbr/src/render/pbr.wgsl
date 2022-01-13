@@ -425,11 +425,17 @@ struct FragmentInput {
 #endif
 };
 
+struct FragmentOutput {
+    [[location(0)]] color: vec4<f32>;
+    [[location(1)]] normal: vec4<f32>;
+};
+
 [[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
-    var output_color: vec4<f32> = material.base_color;
+fn fragment(in: FragmentInput) -> FragmentOutput {
+    var output = FragmentOutput(material.base_color, vec4<f32>(0.0));
+
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+        output.color = output.color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 
     // // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
@@ -483,16 +489,17 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
 #endif
 #endif
+        output.normal = vec4<f32>(((view.inverse_view * vec4<f32>(N, 0.0)).xyz) * vec3<f32>(0.5, 0.5, 0.5) + vec3<f32>(0.5, 0.5, 0.5), 1.0);
 
         if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
             // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
-            output_color.a = 1.0;
+            output.color.a = 1.0;
         } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-            if (output_color.a >= material.alpha_cutoff) {
+            if (output.color.a >= material.alpha_cutoff) {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
-                output_color.a = 1.0;
+                output.color.a = 1.0;
             } else {
-                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
+                // NOTE: output.color.a < material.alpha_cutoff should not is not rendered
                 // NOTE: This and any other discards mean that early-z testing cannot be done!
                 discard;
             }
@@ -515,10 +522,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // Remapping [0,1] reflectance to F0
         // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
         let reflectance = material.reflectance;
-        let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+        let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output.color.rgb * metallic;
 
         // Diffuse strength inversely related to metallicity
-        let diffuse_color = output_color.rgb * (1.0 - metallic);
+        let diffuse_color = output.color.rgb * (1.0 - metallic);
 
         let R = reflect(-V, N);
 
@@ -560,11 +567,11 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
         let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
-        output_color = vec4<f32>(
+        output.color = vec4<f32>(
             light_accum +
                 (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
-                emissive.rgb * output_color.a,
-            output_color.a);
+                emissive.rgb * output.color.a,
+            output.color.a);
 
         // Cluster allocation debug (using 'over' alpha blending)
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
@@ -576,9 +583,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             z_slice = z_slice + lights.cluster_dimensions.z / 2u;
         }
         let slice_color = hsv2rgb(f32(z_slice) / f32(lights.cluster_dimensions.z + 1u), 1.0, 0.5);
-        output_color = vec4<f32>(
-            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
-            output_color.a
+        output.color = vec4<f32>(
+            (1.0 - cluster_overlay_alpha) * output.color.rgb + cluster_overlay_alpha * slice_color,
+            output.color.a
         );
 #endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
@@ -586,25 +593,25 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         // the fragment. It shows a sort of lighting complexity measure.
         let cluster_overlay_alpha = 0.1;
         let max_light_complexity_per_cluster = 64.0;
-        output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
+        output.color.r = (1.0 - cluster_overlay_alpha) * output.color.r
             + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
-        output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
+        output.color.g = (1.0 - cluster_overlay_alpha) * output.color.g
             + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
         // NOTE: Visualizes the cluster to which the fragment belongs
         let cluster_overlay_alpha = 0.1;
         let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
-        output_color = vec4<f32>(
-            (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
-            output_color.a
+        output.color = vec4<f32>(
+            (1.0 - cluster_overlay_alpha) * output.color.rgb + cluster_overlay_alpha * cluster_color,
+            output.color.a
         );
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     }
 
     #ifdef TONEMAPPING_IN_PBR_SHADER
-    output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
+    output.color = vec4<f32>(reinhard_luminance(output.color.rgb), output.color.a);
     #endif
 
-    return output_color;
+    return output;
 }
