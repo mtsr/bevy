@@ -33,7 +33,8 @@ use crate::{
     },
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, SkyTextures, ViewClusterBindings,
+    ViewShadowBindings,
 };
 
 #[derive(Clone)]
@@ -315,6 +316,15 @@ fn layout_entries(
         (25, sampler(SamplerBindingType::Filtering)),
     ));
 
+    // Sky Transmittance LUT
+    entries = entries.extend_with_indices((
+        (
+            26,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        // (27, sampler(SamplerBindingType::Filtering)),
+    ));
+
     entries.to_vec()
 }
 
@@ -368,6 +378,7 @@ pub fn prepare_mesh_view_bind_groups(
         &Tonemapping,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
+        Option<&SkyTextures>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<Image>>,
@@ -405,6 +416,7 @@ pub fn prepare_mesh_view_bind_groups(
             tonemapping,
             render_view_environment_maps,
             render_view_irradiance_volumes,
+            sky_textures,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -524,6 +536,20 @@ pub fn prepare_mesh_view_bind_groups(
 
             entries =
                 entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
+
+            let sky_transmittance_lut_view = sky_textures
+                .map(|sky| &sky.transmittance_lut.default_view)
+                .unwrap_or(&fallback_image_zero.texture_view);
+
+            // TODO maybe linear filtering?
+            // let sky_transmittance_lut_sampler = sky_textures
+            //     .map(|sky| &sky.transmittance_lut.default_sampler)
+            //     .unwrap_or(&fallback_image_zero.sampler);
+
+            entries = entries.extend_with_indices((
+                (26, sky_transmittance_lut_view),
+                // (27, sky_transmittance_lut_sampler),
+            ));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

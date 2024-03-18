@@ -13,6 +13,7 @@
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
     utils::E,
+    sky_atmosphere::{AtmosphereParameters, get_atmosphere_parameters},
 }
 
 #ifdef ENVIRONMENT_MAP
@@ -266,6 +267,13 @@ fn apply_pbr_lighting(
 #endif
     }
 
+    // Calculate atmosphere transmittance for each directional light source
+	let atmosphere = get_atmosphere_parameters();
+    // TODO fix position calculation to work for any world_position
+	let position_relative_to_planet_center = in.world_position.xyz / in.world_position.w + vec3<f32>(0, 0, atmosphere.bottom_radius);
+	let height_above_planet_center = length(position_relative_to_planet_center);
+	let up = position_relative_to_planet_center / height_above_planet_center;
+
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
@@ -281,7 +289,7 @@ fn apply_pbr_lighting(
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
-        var light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        var light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, atmosphere, position_relative_to_planet_center, height_above_planet_center, up);
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
         light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
 #endif

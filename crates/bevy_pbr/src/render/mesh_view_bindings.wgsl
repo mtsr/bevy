@@ -90,3 +90,7 @@
 
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(25) var view_transmission_sampler: sampler;
+
+@group(0) @binding(26) var sky_transmittance_lut_texture: texture_2d<f32>;
+// TODO maybe linear filtering?
+//@group(0) @binding(27) var sky_transmittance_lut_sampler: sampler;

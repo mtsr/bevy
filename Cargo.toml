@@ -688,6 +688,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "sky"
+path = "examples/3d/sky.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sky]
+name = "Sky/Atmosphere rendering"
+description = "A scene showcasing dynamic sky rendering"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "ssao"
 path = "examples/3d/ssao.rs"
 doc-scrape-examples = true

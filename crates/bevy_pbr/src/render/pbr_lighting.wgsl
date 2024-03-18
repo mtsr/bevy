@@ -4,6 +4,8 @@
     utils::PI,
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
+    sky_atmosphere::AtmosphereParameters,
+    sky_common::r_mu_to_uv,
 }
 
 // From the Filament design doc
@@ -270,7 +272,7 @@ fn spot_light(
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, f_ab: vec2<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, f_ab: vec2<f32>, diffuseColor: vec3<f32>, atmosphere: AtmosphereParameters, position_relative_to_planet_center: vec3<f32>, height_above_planet_center: f32, up: vec3<f32>) -> vec3<f32> {
     let light = &view_bindings::lights.directional_lights[light_id];
 
     let incident_light = (*light).direction_to_light.xyz;
@@ -284,5 +286,10 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     let specularIntensity = 1.0;
     let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity, f_ab);
 
-    return (specular_light + diffuse) * (*light).color.rgb * NoL;
+    let mu = dot((*light).direction_to_light, up);
+    let uv = r_mu_to_uv(atmosphere, height_above_planet_center, mu);
+    // TODO maybe linear filtering?
+    let transmittance = textureLoad(view_bindings::sky_transmittance_lut_texture, vec2<u32>(uv), 0).rgb;
+
+    return (specular_light + diffuse) * (*light).color.rgb * NoL * transmittance;
 }

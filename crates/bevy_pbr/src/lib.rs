@@ -16,6 +16,7 @@ mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
+mod sky;
 mod ssao;
 
 use bevy_color::{Color, LinearRgba};
@@ -30,6 +31,7 @@ pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
+pub use sky::*;
 pub use ssao::*;
 
 pub mod prelude {
