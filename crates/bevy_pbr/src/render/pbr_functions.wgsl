@@ -13,7 +13,8 @@
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
     utils::E,
-    sky_atmosphere::{AtmosphereParameters, get_atmosphere_parameters},
+    sky_atmosphere,
+    sky_atmosphere::AtmosphereParameters,
 }
 
 #ifdef ENVIRONMENT_MAP
@@ -268,7 +269,7 @@ fn apply_pbr_lighting(
     }
 
     // Calculate atmosphere transmittance for each directional light source
-	let atmosphere = get_atmosphere_parameters();
+	let atmosphere = sky_atmosphere::get_atmosphere_parameters();
     // TODO fix position calculation to work for any world_position
 	let position_relative_to_planet_center = in.world_position.xyz / in.world_position.w + vec3<f32>(0, 0, atmosphere.bottom_radius);
 	let height_above_planet_center = length(position_relative_to_planet_center);
